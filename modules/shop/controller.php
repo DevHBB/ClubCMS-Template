@@ -105,15 +105,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'commande') {
 render_checkout:
 
 $pageTitle = 'Boutique — ' . Config::get('club_name');
-ob_start();
-?>
-
+ob_start();?>
 <?php if ($action === 'index'): ?>
 <!-- ═══════════════════════════════════════ CATALOGUE -->
 <div class="shop-hero">
   <div class="container">
-    <h1 class="forum-title">🛒 Boutique</h1>
-    <p class="forum-subtitle"><?= Helpers::e(Config::get('club_name')) ?> — Articles officiels</p>
+    <?php $ph_t=Config::get('ph_boutique_title',''); $ph_s=Config::get('ph_boutique_subtitle',''); ?>
+    <h1 class="forum-title"><?=$ph_t?Helpers::e($ph_t):'🛒 Boutique'?></h1>
+    <?php if($ph_s): ?><p class="forum-subtitle"><?=Helpers::e($ph_s)?></p>
+    <?php else: ?><p class="forum-subtitle"><?=Helpers::e(Config::get('club_name'))?> — Articles officiels</p><?php endif; ?>
   </div>
 </div>
 

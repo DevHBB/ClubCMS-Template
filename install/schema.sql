@@ -493,13 +493,43 @@ CREATE TABLE IF NOT EXISTS `cc_benv_task_suggestions` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `cc_video_folders` (
+  `id`           int(11) NOT NULL AUTO_INCREMENT,
+  `name`         varchar(200) NOT NULL,
+  `slug`         varchar(200) NOT NULL UNIQUE,
+  `description`  text DEFAULT NULL,
+  `require_login` tinyint(1) DEFAULT 0,
+  `order`        int(11) DEFAULT 0,
+  `created_at`   datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cc_videos` (
+  `id`           int(11) NOT NULL AUTO_INCREMENT,
+  `folder_id`    int(11) NOT NULL,
+  `title`        varchar(200) NOT NULL,
+  `description`  text DEFAULT NULL,
+  `filename`     varchar(255) DEFAULT NULL COMMENT 'Fichier local uploadé',
+  `embed_url`    varchar(500) DEFAULT NULL COMMENT 'URL YouTube/Vimeo embed',
+  `thumbnail`    varchar(255) DEFAULT NULL,
+  `allow_download` tinyint(1) DEFAULT 0,
+  `require_login` tinyint(1) DEFAULT 0,
+  `filesize`     bigint DEFAULT NULL,
+  `duration`     int(11) DEFAULT NULL COMMENT 'Durée en secondes',
+  `order`        int(11) DEFAULT 0,
+  `created_by`   int(11) NOT NULL,
+  `created_at`   datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Données initiales ─────────────────────────────────────────
 INSERT IGNORE INTO `cc_modules` (`slug`,`label`,`enabled`,`require_login`) VALUES
   ('forum',    'Forum',    1, 1),
   ('shop',     'Boutique', 1, 0),
   ('gallery',  'Galerie',  1, 0),
   ('planning', 'Planning', 1, 0),
-  ('members',  'Annuaire', 0, 1);
+  ('members',  'Annuaire', 0, 1),
+  ('videos',   'Vidéos',   1, 0);
 
 INSERT IGNORE INTO `cc_benv_channels` (`name`,`slug`,`open`,`created_by`) VALUES
   ('Général', 'general', 1, 1),

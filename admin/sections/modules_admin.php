@@ -83,6 +83,11 @@ if ($section === 'config') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && Auth::verifyCsrf() && isset($_POST['save_config'])) {
         $group = Helpers::sanitize($_POST['group'] ?? 'general');
         $skip  = ['csrf_token','save_config','group'];
+        // Checkboxes qui doivent pouvoir être décochées (valeur '0' si absentes du POST)
+        $checkboxes = ['maintenance_mode','translation_enabled'];
+        foreach ($checkboxes as $cb) {
+            Config::set($cb, isset($_POST[$cb]) ? '1' : '0', $group);
+        }
         foreach($_POST as $k => $v) {
             if (in_array($k,$skip) || str_starts_with($k,'_')) continue;
             Config::set(Helpers::sanitize($k), $v, $group);
@@ -118,6 +123,7 @@ if ($section === 'config') {
         <div class="fg"><label>Ville</label><input type="text" name="club_city" value="<?=Helpers::e(Config::get('club_city'))?>"></div>
       </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="maintenance_mode" value="1" <?=Config::get('maintenance_mode')?'checked':''?>> Mode maintenance (seuls les super admins accèdent au site)</label></div>
+      <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="translation_enabled" value="1" <?=Config::get('translation_enabled')?'checked':''?>> Activer le bouton de traduction sur le site (Google Translate, gratuit)</label></div>
       <div style="display:flex;justify-content:flex-end"><button type="submit" name="save_config" class="btn btn-primary">💾 Sauvegarder</button></div>
     </div></form>
 

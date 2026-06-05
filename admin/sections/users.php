@@ -3,6 +3,33 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !Auth::verifyCsrf()) {
     adminFlash('error','CSRF invalide'); Helpers::redirect(u('/admin/users'));
 }
+
+// ── Supprimer utilisateur ─────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
+    $uid = (int)$_POST['user_id'];
+    $target = Database::one("SELECT id,role FROM cc_users WHERE id=?", [$uid]);
+    if (!$target) {
+        adminFlash('error', 'Utilisateur introuvable.');
+    } elseif ($uid === Auth::id()) {
+        adminFlash('error', 'Vous ne pouvez pas supprimer votre propre compte.');
+    } elseif ($target['role'] === 'superadmin') {
+        adminFlash('error', 'Impossible de supprimer un super-administrateur.');
+    } else {
+        foreach (['cc_planning_bookings','cc_planning_criteria_values',
+                  'cc_benv_participations','cc_benv_task_volunteers',
+                  'cc_benv_chat','cc_benv_alerts_seen',
+                  'cc_benv_profiles','cc_benv_coach_access'] as $tbl) {
+            try { Database::run("DELETE FROM $tbl WHERE user_id=?", [$uid]); } catch(Exception $e) {}
+        }
+        try {
+            Database::run("DELETE FROM cc_users WHERE id=?", [$uid]);
+            adminFlash('success', 'Utilisateur supprimé avec succès.');
+        } catch(Exception $e) {
+            adminFlash('error', 'Erreur suppression : '.$e->getMessage());
+        }
+    }
+    Helpers::redirect(u('/admin/users'));
+}
 // ── POST : Sauvegarder critères depuis admin ──────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user_criteria'])) {
     $uid = (int)($_POST['user_id'] ?? 0);

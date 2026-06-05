@@ -7,15 +7,15 @@
 $action = $segments[1] ?? 'index';
 
 $pageTitle = 'Galerie — ' . Config::get('club_name');
-ob_start();
-?>
-
+ob_start();?>
 <?php if ($action === 'index'): ?>
 <!-- ═══════════════════════════ RACINE : dossiers de niveau 0 -->
 <div class="gallery-hero">
   <div class="container">
-    <h1 class="forum-title">📸 Galerie</h1>
-    <p class="forum-subtitle">Photos et albums du club</p>
+    <?php $ph_t=Config::get('ph_galerie_title',''); $ph_s=Config::get('ph_galerie_subtitle',''); ?>
+    <h1 class="forum-title"><?=$ph_t?Helpers::e($ph_t):'📸 Galerie'?></h1>
+    <?php if($ph_s): ?><p class="forum-subtitle"><?=Helpers::e($ph_s)?></p>
+    <?php else: ?><p class="forum-subtitle">Photos et albums du club</p><?php endif; ?>
   </div>
 </div>
 

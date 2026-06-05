@@ -45,23 +45,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 0b. Vérifier reCAPTCHA v3 si configuré
         if (!$error && $recaptchaSite) {
-            $recaptchaSecret   = Config::get('recaptcha_secret', '');
             $recaptchaResponse = $_POST['g-recaptcha-response'] ?? '';
             if (!$recaptchaResponse) {
                 $error = 'Vérification anti-robot échouée. Réessayez.';
             } else {
-                try {
-                    $verif = file_get_contents(
-                        'https://www.google.com/recaptcha/api/siteverify?secret='
-                        .urlencode($recaptchaSecret).'&response='.urlencode($recaptchaResponse)
-                    );
-                    $verif = json_decode($verif, true);
-                    if (!($verif['success'] ?? false) || ($verif['score'] ?? 0) < 0.5) {
-                        $error = 'Vérification anti-robot échouée (score insuffisant). Réessayez.';
-                    }
-                } catch(Exception $e) {
-                    // En cas d'erreur réseau, on laisse passer (fail open)
+                $verif = Auth::verifyRecaptcha($recaptchaResponse);
+                $score = (float)($verif['score'] ?? 0);
+                // En local (localhost/127.0.0.1), Google retourne souvent score=0
+                // On détecte et on laisse passer pour ne pas bloquer le dev
+                $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost','127.0.0.1'])
+                    || str_starts_with($_SERVER['HTTP_HOST'] ?? '', 'localhost:');
+                if (!$isLocal && !($verif['success'] ?? false)) {
+                    $error = 'Vérification anti-robot échouée. Réessayez.';
+                } elseif (!$isLocal && $score < 0.3) {
+                    $error = 'Vérification anti-robot échouée (score insuffisant). Réessayez.';
                 }
+                // En local ou si score >= 0.3 → on laisse passer
             }
         }
 

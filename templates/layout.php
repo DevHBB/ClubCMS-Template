@@ -372,5 +372,114 @@ async function subNl(e){
 @media(max-width:768px){.fn-inner{flex-direction:column;align-items:flex-start}.fn-form{width:100%}.footer-main{grid-template-columns:1fr;gap:1.5rem;padding:1.5rem 0}}
 </style>
 <?php include CC_ROOT . '/templates/popup.php'; ?>
+
+<?php if(Config::get('translation_enabled')): ?>
+<!-- ── Système de traduction ── -->
+<style>
+#lang-widget{position:fixed;top:80px;right:0;z-index:9998}
+#lang-widget-btn{display:flex;align-items:center;gap:.4rem;background:#fff;border:none;border-right:none;border-radius:10px 0 0 10px;padding:.5rem .75rem .5rem .875rem;cursor:pointer;box-shadow:-3px 2px 12px rgba(0,0,0,.12);font-family:inherit;font-size:.85rem;font-weight:600;color:#374151;transition:background .15s}
+#lang-widget-btn:hover{background:#f8fafc}
+#lang-widget-panel{display:none;position:absolute;top:0;right:100%;background:#fff;border-radius:12px 0 0 12px;box-shadow:-6px 4px 24px rgba(0,0,0,.13);overflow:hidden;min-width:180px;border:1.5px solid #e2e8f0;border-right:none}
+#lang-widget-panel.open{display:block}
+.lang-item{display:flex;align-items:center;gap:.625rem;width:100%;padding:.55rem .875rem;background:none;border:none;cursor:pointer;font-size:.85rem;font-family:inherit;text-align:left;color:#374151;transition:background .12s}
+.lang-item:hover{background:#f1f5f9}
+.lang-item.active{background:#eff6ff;color:var(--color-primary);font-weight:700}
+.goog-te-banner-frame,.skiptranslate{display:none!important}
+body{top:0!important}
+</style>
+
+<div id="lang-widget">
+  <button id="lang-widget-btn" onclick="document.getElementById('lang-widget-panel').classList.toggle('open')">
+    <span id="lw-flag" style="font-size:1.15rem">🌐</span>
+    <span id="lw-code">FR</span>
+    <span style="font-size:.6rem;opacity:.5">◀</span>
+  </button>
+  <div id="lang-widget-panel">
+    <?php foreach([
+      ['fr',  '🇫🇷', 'FR', 'Français'],
+      ['en',  '🇬🇧', 'EN', 'English'],
+      ['es',  '🇪🇸', 'ES', 'Español'],
+      ['de',  '🇩🇪', 'DE', 'Deutsch'],
+      ['it',  '🇮🇹', 'IT', 'Italiano'],
+      ['pt',  '🇵🇹', 'PT', 'Português'],
+      ['nl',  '🇳🇱', 'NL', 'Nederlands'],
+      ['ar',  '🇸🇦', 'AR', 'العربية'],
+      ['zh-CN','🇨🇳','ZH', '中文'],
+      ['ru',  '🇷🇺', 'RU', 'Русский'],
+    ] as [$code, $flag, $short, $name]): ?>
+    <button class="lang-item" onclick="lwTranslate('<?=$code?>')">
+      <span style="font-size:1.1rem"><?=$flag?></span>
+      <span style="font-weight:700;width:26px;color:#64748b"><?=$short?></span>
+      <span><?=$name?></span>
+    </button>
+    <?php endforeach; ?>
+  </div>
+</div>
+
+<!-- Google Translate (invisible, piloté par cookie) -->
+<div id="google_translate_element" style="display:none"></div>
+<script>
+function googleTranslateElementInit(){
+  new google.translate.TranslateElement({pageLanguage:'fr',autoDisplay:false},'google_translate_element');
+}
+</script>
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+<script>
+var lwLangs = {
+  'fr':['🇫🇷','FR'],'en':['🇬🇧','EN'],'es':['🇪🇸','ES'],'de':['🇩🇪','DE'],
+  'it':['🇮🇹','IT'],'pt':['🇵🇹','PT'],'nl':['🇳🇱','NL'],'ar':['🇸🇦','AR'],
+  'zh-CN':['🇨🇳','ZH'],'ru':['🇷🇺','RU']
+};
+
+function lwTranslate(lang) {
+  if (lang === 'fr') {
+    document.cookie = 'googtrans=; expires=Thu,01 Jan 1970 00:00:01 GMT; path=/';
+    document.cookie = 'googtrans=; expires=Thu,01 Jan 1970 00:00:01 GMT; path=/; domain=.' + location.hostname;
+  } else {
+    document.cookie = 'googtrans=/fr/' + lang + '; path=/';
+    document.cookie = 'googtrans=/fr/' + lang + '; path=/; domain=.' + location.hostname;
+  }
+  location.reload();
+}
+
+// Mettre à jour le bouton selon cookie actif
+(function() {
+  var c = document.cookie.match(/googtrans=\/fr\/([^;]+)/);
+  if (c && c[1] && lwLangs[c[1]]) {
+    document.getElementById('lw-flag').textContent = lwLangs[c[1]][0];
+    document.getElementById('lw-code').textContent  = lwLangs[c[1]][1];
+    // Marquer actif
+    document.querySelectorAll('.lang-item').forEach(function(btn) {
+      if (btn.getAttribute('onclick').indexOf("'" + c[1] + "'") > -1) {
+        btn.classList.add('active');
+      }
+    });
+  } else {
+    // Marquer FR comme actif
+    document.querySelectorAll('.lang-item').forEach(function(btn) {
+      if (btn.getAttribute('onclick').indexOf("'fr'") > -1) btn.classList.add('active');
+    });
+  }
+})();
+
+// Fermer panel en cliquant ailleurs
+document.addEventListener('click', function(e) {
+  var panel = document.getElementById('lang-widget-panel');
+  var btn   = document.getElementById('lang-widget-btn');
+  if (panel && btn && !btn.contains(e.target) && !panel.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+</script>
+<?php else: ?>
+<script>
+// Traduction désactivée : effacer le cookie
+if (document.cookie.indexOf('googtrans') !== -1) {
+  document.cookie = 'googtrans=; expires=Thu,01 Jan 1970 00:00:01 GMT; path=/';
+  document.cookie = 'googtrans=; expires=Thu,01 Jan 1970 00:00:01 GMT; path=/; domain=.' + location.hostname;
+}
+</script>
+<?php endif; ?>
 </body>
 </html>

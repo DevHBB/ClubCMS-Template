@@ -76,15 +76,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'topic') {
 }
 
 $pageTitle = 'Forum — ' . Config::get('club_name');
-ob_start();
-?>
-
+ob_start();?>
 <?php if ($action === 'index'): ?>
 <!-- ═══════════════════════════════════════ LISTE DES CATÉGORIES -->
 <div class="forum-hero">
   <div class="container">
-    <h1 class="forum-title">💬 Forum</h1>
-    <p class="forum-subtitle">Échangez avec les membres du club</p>
+    <?php $ph_t=Config::get('ph_forum_title',''); $ph_s=Config::get('ph_forum_subtitle',''); ?>
+    <h1 class="forum-title"><?=$ph_t?Helpers::e($ph_t):'💬 Forum'?></h1>
+    <?php if($ph_s): ?><p class="forum-subtitle"><?=Helpers::e($ph_s)?></p>
+    <?php else: ?><p class="forum-subtitle">Échangez avec les membres du club</p><?php endif; ?>
   </div>
 </div>
 

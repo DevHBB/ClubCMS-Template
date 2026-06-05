@@ -31,14 +31,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_homepage'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_page'])) {
     $id   = (int)($_POST['page_id'] ?? 0);
     $data = [
-        'title'        => Helpers::sanitize($_POST['title'] ?? ''),
-        'excerpt'      => Helpers::sanitize($_POST['excerpt'] ?? ''),
-        'content'      => json_encode(array_values($_POST['blocks'] ?? []), JSON_UNESCAPED_UNICODE),
-        'published'    => (int)($_POST['published'] ?? 0),
+        'title'         => Helpers::sanitize($_POST['title'] ?? ''),
+        'excerpt'       => Helpers::sanitize($_POST['excerpt'] ?? ''),
+        'content'       => json_encode(array_values($_POST['blocks'] ?? []), JSON_UNESCAPED_UNICODE),
+        'published'     => (int)($_POST['published'] ?? 0),
         'access_mode'   => in_array($_POST['access_mode']??'',['public','teaser','members'])?$_POST['access_mode']:'public',
         'access_message'=> Helpers::sanitize($_POST['access_message']??''),
-        'type'         => 'page',
-        'user_id'      => Auth::id(),
+        'type'          => 'page',
+        'user_id'       => Auth::id(),
+    ];
+    // Champs SEO stockés en config (clé = page_{id}_seo)
+    $seoData = [
+        'meta_title'       => Helpers::sanitize($_POST['meta_title'] ?? ''),
+        'meta_description' => Helpers::sanitize($_POST['meta_description'] ?? ''),
+        'og_title'         => Helpers::sanitize($_POST['og_title'] ?? ''),
+        'og_description'   => Helpers::sanitize($_POST['og_description'] ?? ''),
     ];
     if (!empty($_FILES['cover']['tmp_name'])) {
         @mkdir(CC_ROOT.'/assets/uploads/pages', 0755, true);
@@ -52,12 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_page'])) {
     if ($id) {
         $sets = implode(',', array_map(fn($k)=>"`$k`=?", array_keys($data)));
         Database::run("UPDATE cc_articles SET $sets, updated_at=NOW() WHERE id=?", [...array_values($data), $id]);
+        Config::set("page_{$id}_seo", json_encode($seoData), 'pages');
         adminFlash('success','Page sauvegardée.');
     } else {
         $data['slug'] = Helpers::uniqueSlug($data['title'], 'cc_articles');
         $cols = implode(',', array_map(fn($k)=>"`$k`", array_keys($data)));
         $vals = implode(',', array_fill(0, count($data), '?'));
-        Database::insert("INSERT INTO cc_articles ($cols, created_at) VALUES ($vals, NOW())", array_values($data));
+        $newId = Database::insert("INSERT INTO cc_articles ($cols, created_at) VALUES ($vals, NOW())", array_values($data));
+        Config::set("page_{$newId}_seo", json_encode($seoData), 'pages');
         adminFlash('success','Page créée.');
     }
     Helpers::redirect(u('/admin/pages?tab=pages'));
@@ -73,6 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_page'])) {
 $tab      = $_GET['tab'] ?? 'homepage';
 $editId   = (int)($_GET['edit'] ?? 0);
 $editPage = $editId ? Database::one("SELECT * FROM cc_articles WHERE id=?", [$editId]) : null;
+$editPageSeo = [];
+if ($editPage) {
+    $editPageSeo = json_decode(Config::get("page_{$editPage['id']}_seo", '{}'), true) ?? [];
+}
 $pages    = Database::all("SELECT * FROM cc_articles WHERE type='page' ORDER BY created_at DESC");
 $homepageBlocks = json_decode(Config::get('homepage_blocks','[]'), true) ?? [];
 

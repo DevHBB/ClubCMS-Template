@@ -102,6 +102,7 @@
 
     <?php if(Auth::isAdmin()): ?>
     <div class="admin-nav-group">Contenu</div>
+    <a href="<?=u('/admin/pageheaders')?>" class="admin-nav-item <?=$section==='pageheaders'?'active':''?>">🏷️ En-têtes pages</a>
     <a href="<?=u('/admin/pages')?>"    class="admin-nav-item <?=$section==='pages'?'active':''?>">📝 Pages & accueil</a>
     <a href="<?=u('/admin/articles')?>" class="admin-nav-item <?=$section==='articles'?'active':''?>">📰 Articles</a>
     <a href="<?=u('/admin/menu')?>"     class="admin-nav-item <?=$section==='menu'?'active':''?>">🔗 Menu</a>
@@ -116,6 +117,7 @@
     <?php if(Auth::isAdmin()): ?>
     <a href="<?=u('/admin/forum')?>"    class="admin-nav-item <?=$section==='forum'?'active':''?>">💬 Forum</a>
     <a href="<?=u('/admin/shop')?>"     class="admin-nav-item <?=$section==='shop'?'active':''?>">🛒 Boutique</a>
+    <a href="<?=u('/admin/videos')?>"   class="admin-nav-item <?=$section==='videos'?'active':''?>">🎬 Vidéos</a>
     <a href="<?=u('/admin/gallery')?>"  class="admin-nav-item <?=$section==='gallery'?'active':''?>">📸 Galerie</a>
     <div class="admin-nav-group">Communication</div>
     <a href="<?=u('/admin/mails')?>"    class="admin-nav-item <?=$section==='mails'?'active':''?>">✉️ Modèles emails</a>

@@ -19,8 +19,7 @@ $articles = Database::all(
 );
 
 $pageTitle = 'Actualités — ' . Config::get('club_name');
-ob_start();
-?>
+ob_start();?>
 
 <!-- Bannière -->
 <div style="background:linear-gradient(135deg,var(--color-primary),color-mix(in srgb,var(--color-primary) 65%,#000));padding:2.5rem 0 2rem;color:#fff">

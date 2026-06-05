@@ -412,14 +412,15 @@ $periodLabel = $view === 'week'
     ? $start->format('d') . '–' . $end->format('d M Y')
     : ucfirst($baseDate->format('F Y'));
 
-ob_start();
-?>
+ob_start();?>
 
 <!-- HEADER PLANNING -->
 <div class="planning-header">
   <div class="container planning-top">
     <div class="planning-left">
-      <h1 class="planning-title">📅 Planning</h1>
+      <?php $ph_t=Config::get('ph_planning_title',''); $ph_s=Config::get('ph_planning_subtitle',''); ?>
+      <h1 class="planning-title"><?=$ph_t?Helpers::e($ph_t):'📅 Planning'?></h1>
+      <?php if($ph_s): ?><p style="color:rgba(255,255,255,.75);font-size:.875rem;margin:.2rem 0 0"><?=Helpers::e($ph_s)?></p><?php endif; ?>
       <span class="planning-period-label"><?= $periodLabel ?></span>
     </div>
     <div class="planning-controls">
