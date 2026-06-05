@@ -356,9 +356,9 @@ async function subNl(e){
 .fn-text strong{color:#fff;font-size:1rem}
 .fn-text span{color:rgba(255,255,255,.7);font-size:.82rem}
 .fn-form{display:flex;gap:.5rem;flex:1;flex-wrap:wrap}
-.fn-input{flex:1;min-width:130px;padding:.5rem .875rem;border-radius:6px;border:none;font-family:var(--font-body);font-size:.875rem;background:rgba(255,255,255,.15);color:#fff;outline:none}
-.fn-input::placeholder{color:rgba(255,255,255,.55)}
-.fn-input:focus{background:rgba(255,255,255,.25)}
+.fn-input{flex:1;min-width:130px;padding:.5rem .875rem;border-radius:6px;border:2px solid rgba(255,255,255,.3);font-family:var(--font-body);font-size:.875rem;background:#fff;color:#1e293b;outline:none}
+.fn-input::placeholder{color:#94a3b8}
+.fn-input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
 .fn-btn{background:#fff;color:var(--color-primary);padding:.5rem 1.25rem;border-radius:6px;border:none;font-weight:700;font-size:.875rem;cursor:pointer;white-space:nowrap;font-family:var(--font-body)}
 .site-footer{background:#0f172a;color:rgba(255,255,255,.65)}
 .footer-main{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:3rem;padding:2.5rem 0}
