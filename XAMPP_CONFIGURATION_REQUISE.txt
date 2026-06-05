@@ -1,0 +1,45 @@
+══════════════════════════════════════════════════════════════
+CONFIGURATION XAMPP OBLIGATOIRE — 2 minutes, une seule fois
+══════════════════════════════════════════════════════════════
+
+Sans cette configuration, les URLs comme localhost/mon-article
+ne fonctionneront JAMAIS. Apache retourne une 404 avant même
+d'appeler PHP.
+
+── ÉTAPE 1 : Ouvrir httpd.conf ──────────────────────────────
+
+1. Ouvrez XAMPP Control Panel
+2. Cliquez "Config" à côté d'Apache
+3. Choisissez "Apache (httpd.conf)"
+
+── ÉTAPE 2 : Activer mod_rewrite ────────────────────────────
+
+Cherchez (Ctrl+F) :
+  #LoadModule rewrite_module modules/mod_rewrite.so
+
+Retirez le # pour avoir :
+  LoadModule rewrite_module modules/mod_rewrite.so
+
+── ÉTAPE 3 : Autoriser .htaccess ────────────────────────────
+
+Cherchez :
+  <Directory "C:/xampp/htdocs">
+
+Dans ce bloc, changez :
+  AllowOverride None
+
+En :
+  AllowOverride All
+
+── ÉTAPE 4 : Sauvegarder et redémarrer ──────────────────────
+
+1. Sauvegardez httpd.conf
+2. Dans XAMPP Control Panel : Stop Apache → Start Apache
+
+── VÉRIFICATION ─────────────────────────────────────────────
+
+Allez sur : http://localhost/actualites
+Si vous voyez la page Actualités → c'est bon !
+Si vous voyez encore une 404 → relisez les étapes.
+
+══════════════════════════════════════════════════════════════

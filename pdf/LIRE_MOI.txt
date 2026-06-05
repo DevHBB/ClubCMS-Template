@@ -1,0 +1,7 @@
+Pour activer la génération de la carte membre PDF :
+
+1. Téléchargez FPDF sur http://www.fpdf.org/
+2. Extrayez le fichier fpdf.php dans ce dossier : pdf/fpdf/fpdf.php
+
+FPDF est une librairie PHP gratuite et sans dépendance.
+La carte membre fonctionnera dès que fpdf.php sera présent.

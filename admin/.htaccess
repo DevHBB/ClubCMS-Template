@@ -1,0 +1,5 @@
+# Redirige tout vers le front controller de la racine
+Options -Indexes
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.*)$ ../index.php?route=admin/$1 [QSA,L]

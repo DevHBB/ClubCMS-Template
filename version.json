@@ -1,0 +1,16 @@
+{
+  "version": "1.4.0",
+  "released": "2026-06-05",
+  "changelog": [
+    "Module bénévoles complet (planning, tâches Kanban, chat, documents, annuaire)",
+    "Système de droits bénévoles et coachs",
+    "Upload de fichiers avec prévisualisation",
+    "reCAPTCHA v3 pour l'inscription",
+    "Système de mise à jour avec migrations",
+    "Toggles accès inscription/connexion",
+    "Pop-up annonces avec 10 thèmes",
+    "Gestion des bénévoles sur créneaux planning"
+  ],
+  "min_php": "8.1",
+  "min_mysql": "5.7"
+}
