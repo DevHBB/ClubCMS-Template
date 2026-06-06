@@ -14,6 +14,17 @@ try { Database::run("ALTER TABLE cc_articles ADD COLUMN IF NOT EXISTS access_mes
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_homepage'])) {
     $fields = ['hero_title','hero_subtitle','hero_btn1_label','hero_btn1_url','hero_btn2_label','hero_btn2_url'];
     foreach ($fields as $f) Config::set($f, Helpers::sanitize($_POST[$f] ?? ''), 'homepage');
+    // Stats bar
+    Config::set('stats_bar_enabled', isset($_POST['stats_bar_enabled']) ? '1' : '0', 'homepage');
+    $statBoxes = [];
+    for ($si=0; $si<4; $si++) {
+        $statBoxes[] = [
+            'type'  => $_POST['stat_type'][$si]  ?? 'members',
+            'label' => Helpers::sanitize($_POST['stat_label'][$si] ?? ''),
+            'value' => Helpers::sanitize($_POST['stat_value'][$si] ?? ''),
+        ];
+    }
+    Config::set('stats_bar_boxes', json_encode($statBoxes), 'homepage');
     $blocks = array_values($_POST['blocks'] ?? []);
     // Log debug - supprimer après
     if (defined('CC_ROOT')) {
@@ -137,6 +148,61 @@ ob_start();
       include CC_ROOT . '/admin/partials/block_editor.php';
       include_once CC_ROOT . '/admin/partials/block_js.php';
       ?>
+    </div>
+  </div>
+
+  <!-- ── Barre de statistiques ── -->
+  <div style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-top:1.5rem">
+    <div style="background:#f8fafc;padding:.875rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:700;font-size:.9rem">📊 Barre de statistiques</div>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer">
+        <input type="checkbox" name="stats_bar_enabled" value="1" <?=Config::get('stats_bar_enabled','1')?'checked':''?> style="accent-color:var(--color-primary);width:16px;height:16px">
+        Afficher la barre
+      </label>
+    </div>
+    <div style="padding:1rem">
+      <p style="font-size:.8rem;color:#64748b;margin-bottom:1rem">Configurez jusqu'à 4 cases. <em>Auto</em> = chiffre récupéré en temps réel. <em>Personnalisé</em> = texte libre.</p>
+      <?php
+      $curBoxes = json_decode(Config::get('stats_bar_boxes','[]'), true) ?: [
+        ['type'=>'members', 'label'=>'MEMBRES',         'value'=>''],
+        ['type'=>'topics',  'label'=>'DISCUSSIONS',     'value'=>''],
+        ['type'=>'slots',   'label'=>'CRÉNEAUX À VENIR','value'=>''],
+        ['type'=>'photos',  'label'=>'PHOTOS',          'value'=>''],
+      ];
+      $statTypes = [
+        'members'  => '👥 Membres actifs (auto)',
+        'topics'   => '💬 Discussions forum (auto)',
+        'slots'    => '📅 Créneaux à venir (auto)',
+        'photos'   => '🖼 Photos galerie (auto)',
+        'articles' => '📰 Articles publiés (auto)',
+        'videos'   => '🎬 Vidéos (auto)',
+        'custom'   => '✏️ Valeur personnalisée',
+      ];
+      for ($si=0; $si<4; $si++):
+        $box = $curBoxes[$si] ?? ['type'=>'members','label'=>'','value'=>''];
+      ?>
+      <div style="display:grid;grid-template-columns:180px 1fr 140px;gap:.625rem;padding:.75rem;background:#f8fafc;border-radius:8px;margin-bottom:.5rem;border:1px solid #e2e8f0;align-items:end">
+        <div>
+          <label style="font-size:.72rem;font-weight:600;color:#64748b;display:block;margin-bottom:.25rem">Case <?=$si+1?></label>
+          <select name="stat_type[]" class="input-std" style="font-size:.82rem" onchange="toggleStat(this,<?=$si?>)">
+            <?php foreach($statTypes as $k=>$v): ?>
+            <option value="<?=$k?>" <?=$box['type']===$k?'selected':''?>><?=Helpers::e($v)?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;font-weight:600;color:#64748b;display:block;margin-bottom:.25rem">Label</label>
+          <input type="text" name="stat_label[]" class="input-std" style="font-size:.82rem" value="<?=Helpers::e($box['label'])?>" placeholder="Ex: MEMBRES">
+        </div>
+        <div id="sv<?=$si?>" style="<?=$box['type']!=='custom'?'opacity:.3;pointer-events:none':''?>">
+          <label style="font-size:.72rem;font-weight:600;color:#64748b;display:block;margin-bottom:.25rem">Valeur</label>
+          <input type="text" name="stat_value[]" class="input-std" style="font-size:.82rem" value="<?=Helpers::e($box['value'])?>" placeholder="150+">
+        </div>
+      </div>
+      <?php endfor; ?>
+      <script>
+      function toggleStat(s,i){var d=document.getElementById('sv'+i);d.style.opacity=s.value==='custom'?'1':'.3';d.style.pointerEvents=s.value==='custom'?'auto':'none';}
+      </script>
     </div>
   </div>
 

@@ -50,13 +50,40 @@ ob_start();
 </div>
 
 <!-- ══ STATS ══ -->
+<?php
+$statsEnabled = Config::get('stats_bar_enabled','1');
+$statsBoxes   = json_decode(Config::get('stats_bar_boxes','[]'), true) ?: [
+    ['type'=>'members','label'=>'MEMBRES','value'=>''],
+    ['type'=>'topics','label'=>'DISCUSSIONS','value'=>''],
+    ['type'=>'slots','label'=>'CRÉNEAUX À VENIR','value'=>''],
+    ['type'=>'photos','label'=>'PHOTOS','value'=>''],
+];
+// Résoudre les valeurs auto
+$autoVals = [
+    'members'  => $stats['members'],
+    'topics'   => $stats['topics'],
+    'slots'    => $stats['slots'],
+    'photos'   => $stats['photos'],
+    'articles' => (int)Database::scalar("SELECT COUNT(*) FROM cc_articles WHERE published=1 AND type='article'"),
+    'videos'   => (int)Database::scalar("SELECT COUNT(*) FROM cc_videos"),
+];
+if($statsEnabled):
+?>
 <div style="background:var(--color-primary);color:#fff;padding:1.25rem 0">
-  <div class="container" style="display:grid;grid-template-columns:repeat(4,1fr);text-align:center;gap:.5rem">
-    <?php foreach([[$stats['members'],'MEMBRES'],[$stats['topics'],'DISCUSSIONS'],[$stats['slots'],'CRÉNEAUX À VENIR'],[$stats['photos'],'PHOTOS']] as [$n,$l]): ?>
-    <div><div style="font-family:var(--font-heading);font-size:2.2rem;letter-spacing:.05em"><?=$n?></div><div style="font-size:.7rem;letter-spacing:.12em;opacity:.75"><?=$l?></div></div>
+  <div class="container" style="display:grid;grid-template-columns:repeat(<?=count($statsBoxes)?>,1fr);text-align:center;gap:.5rem">
+    <?php foreach($statsBoxes as $box):
+      $val   = ($box['type']==='custom') ? $box['value'] : ($autoVals[$box['type']] ?? 0);
+      $label = $box['label'] ?: strtoupper($box['type']);
+      if(!$val && !$box['label']) continue;
+    ?>
+    <div>
+      <div style="font-family:var(--font-heading);font-size:2.2rem;letter-spacing:.05em"><?=$val?></div>
+      <div style="font-size:.7rem;letter-spacing:.12em;opacity:.75"><?=Helpers::e($label)?></div>
+    </div>
     <?php endforeach; ?>
   </div>
 </div>
+<?php endif; ?>
 
 <!-- ══ BLOCS CONFIGURABLES ══ -->
 <?php if (!empty($homepageBlocks)):

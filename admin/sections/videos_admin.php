@@ -229,7 +229,7 @@ ob_start(); ?>
               <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">🖼 Miniature (optionnel)</label>
               <input type="file" name="thumbnail" class="bi" accept="image/*" style="padding:.35rem">
               <?php if($editVid&&$editVid['thumbnail']): ?>
-              <img src="<?=u('/uploads/videos/thumbs/'.$editVid['thumbnail'])?>" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-top:.35rem">
+              <img src="<?=asset('/uploads/videos/thumbs/'.$editVid['thumbnail'])?>" style="width:100%;height:60px;object-fit:cover;border-radius:6px;margin-top:.35rem">
               <?php endif; ?>
             </div>
             <div style="display:flex;flex-direction:column;gap:.5rem;justify-content:center">
@@ -261,7 +261,7 @@ ob_start(); ?>
         <!-- Miniature ou player préview -->
         <div style="aspect-ratio:16/9;background:#1e293b;position:relative;overflow:hidden">
           <?php if($v['thumbnail']): ?>
-          <img src="<?=u('/uploads/videos/thumbs/'.$v['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
+          <img src="<?=asset('/uploads/videos/thumbs/'.$v['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
           <?php elseif($v['embed_url']): ?>
           <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem">▶️</div>
           <?php elseif($v['filename']): ?>

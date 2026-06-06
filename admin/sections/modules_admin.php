@@ -123,6 +123,11 @@ if ($section === 'config') {
         <div class="fg"><label>Ville</label><input type="text" name="club_city" value="<?=Helpers::e(Config::get('club_city'))?>"></div>
       </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="maintenance_mode" value="1" <?=Config::get('maintenance_mode')?'checked':''?>> Mode maintenance (seuls les super admins accèdent au site)</label></div>
+      <div class="fg">
+        <label>Mention pied de page</label>
+        <input type="text" name="footer_mention" class="input-std" value="<?=Helpers::e(Config::get('footer_mention',''))?>" placeholder="© 2025 Mon Club — Tous droits réservés">
+        <small style="color:#64748b;font-size:.78rem">Laissez vide pour le texte automatique. Exemples : "© 2025 MonClub — Site propulsé par Valentin" ou "Tous droits réservés — MonClub"</small>
+      </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="translation_enabled" value="1" <?=Config::get('translation_enabled')?'checked':''?>> Activer le bouton de traduction sur le site (Google Translate, gratuit)</label></div>
       <div style="display:flex;justify-content:flex-end"><button type="submit" name="save_config" class="btn btn-primary">💾 Sauvegarder</button></div>
     </div></form>

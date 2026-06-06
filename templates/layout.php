@@ -292,7 +292,16 @@ $gf = urlencode($fh).':wght@400;700&family='.urlencode($fb).':wght@400;500;600;7
     </div>
   </div>
   <div class="footer-bottom">
-    <div class="container">© <?= date('Y') ?> <?= Helpers::e(Config::get('club_name','ClubCMS')) ?> — Propulsé par <strong>ClubCMS</strong></div>
+    <div class="container">
+      <?php
+      $footerMention = Config::get('footer_mention','');
+      if($footerMention) {
+          echo Helpers::e($footerMention);
+      } else {
+          echo '© '.date('Y').' '.Helpers::e(Config::get('club_name','ClubCMS')).' — Propulsé par <strong>ClubCMS</strong>';
+      }
+      ?>
+    </div>
   </div>
 </footer>
 

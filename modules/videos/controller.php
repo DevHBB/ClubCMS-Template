@@ -83,8 +83,8 @@ $ph_s = Config::get('ph_videos_subtitle', '');
       <?php elseif($video['filename']): ?>
       <video controls style="width:100%;height:100%;background:#000"
         <?=$video['allow_download'] ? '' : 'controlslist="nodownload"' ?>
-        <?php if($video['thumbnail']): ?>poster="<?=u('/uploads/videos/thumbs/'.$video['thumbnail'])?>"<?php endif; ?>>
-        <source src="<?=u('/uploads/videos/'.$video['filename'])?>" type="video/<?=pathinfo($video['filename'],PATHINFO_EXTENSION)?>">
+        <?php if($video['thumbnail']): ?>poster="<?=asset('/uploads/videos/thumbs/'.$video['thumbnail'])?>"<?php endif; ?>>
+        <source src="<?=asset('/uploads/videos/'.$video['filename'])?>" type="video/<?=pathinfo($video['filename'],PATHINFO_EXTENSION)?>">
         Votre navigateur ne supporte pas la lecture vidéo.
       </video>
       <?php else: ?>
@@ -110,7 +110,7 @@ $ph_s = Config::get('ph_videos_subtitle', '');
       <a href="<?=u('/videos?v='.$r['id'])?>" style="display:flex;gap:.625rem;text-decoration:none;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff;transition:border-color .15s"
         onmouseover="this.style.borderColor='var(--color-primary)'" onmouseout="this.style.borderColor='#e2e8f0'">
         <div style="width:90px;flex-shrink:0;aspect-ratio:16/9;background:#1e293b;display:flex;align-items:center;justify-content:center">
-          <?php if($r['thumbnail']): ?><img src="<?=u('/uploads/videos/thumbs/'.$r['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
+          <?php if($r['thumbnail']): ?><img src="<?=asset('/uploads/videos/thumbs/'.$r['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
           <?php else: ?><span style="font-size:1.25rem">🎬</span><?php endif; ?>
         </div>
         <div style="padding:.5rem;flex:1;min-width:0">
@@ -142,7 +142,7 @@ $ph_s = Config::get('ph_videos_subtitle', '');
     onmouseover="this.style.borderColor='var(--color-primary)';this.style.transform='translateY(-2px)'"
     onmouseout="this.style.borderColor='#e2e8f0';this.style.transform='none'">
     <div style="aspect-ratio:16/9;background:#1e293b;position:relative;overflow:hidden">
-      <?php if($v['thumbnail']): ?><img src="<?=u('/uploads/videos/thumbs/'.$v['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
+      <?php if($v['thumbnail']): ?><img src="<?=asset('/uploads/videos/thumbs/'.$v['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover">
       <?php else: ?><div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.5rem">🎬</div><?php endif; ?>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
         <div style="width:44px;height:44px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem">▶</div>
@@ -179,7 +179,7 @@ $ph_s = Config::get('ph_videos_subtitle', '');
     onmouseover="this.style.borderColor='var(--color-primary)';this.style.transform='translateY(-2px)'"
     onmouseout="this.style.borderColor='#e2e8f0';this.style.transform='none'">
     <div style="aspect-ratio:16/9;background:linear-gradient(135deg,#1e293b,#334155);position:relative;overflow:hidden">
-      <?php if($firstThumb): ?><img src="<?=u('/uploads/videos/thumbs/'.$firstThumb['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover;opacity:.5"><?php endif; ?>
+      <?php if($firstThumb): ?><img src="<?=asset('/uploads/videos/thumbs/'.$firstThumb['thumbnail'])?>" style="width:100%;height:100%;object-fit:cover;opacity:.5"><?php endif; ?>
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff">
         <span style="font-size:2.25rem">🎬</span>
         <span style="font-size:.8rem;margin-top:.4rem;background:rgba(0,0,0,.45);padding:.2rem .7rem;border-radius:99px">
