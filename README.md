@@ -1,275 +1,202 @@
-# ⚡ ClubCMS — Guide d'installation complet
+# ClubCMS
 
-> **Pour les nuls en informatique** — Suivez les étapes dans l'ordre, ça marche.
-
----
-
-## 🎯 Ce que vous allez obtenir
-
-Un site complet pour votre club avec :
-- Page d'accueil avec les couleurs et le logo de votre club
-- Inscription / connexion des membres (protégé anti-robots)
-- Espace membre avec profil, licence et carte membre PDF
-- Forum de discussion entre membres
-- Boutique en ligne (paiement Stripe, PayPal ou à la remise)
-- Galerie photos avec albums et sous-albums
-- Planning / calendrier avec réservation de créneaux
-- Administration complète (4 niveaux de droits)
-- Emails automatiques (inscription, commande, forum...)
+> CMS complet pour clubs sportifs et associatifs — PHP 8.2 + MySQL, sans framework.
 
 ---
 
-## 📋 Ce qu'il vous faut AVANT de commencer
+## ✅ Fonctionnalités — Vue rapide
 
-### Chez votre hébergeur, vérifiez que vous avez :
-- **PHP 8.2 ou supérieur**
-- **MySQL** ou **MariaDB**
-- **Apache** avec mod_rewrite activé
+**Site public**
+- Page d'accueil (hero, barre de stats configurable, blocs de contenu)
+- Planning des créneaux avec inscription en ligne
+- Forum membres (catégories, topics, modération)
+- Galerie photos (dossiers, albums, lightbox)
+- Médiathèque vidéos (upload local + YouTube/Vimeo, téléchargement contrôlé)
+- Boutique (produits, panier, PayPal/virement, codes promo)
+- Articles & actualités + pages personnalisées (éditeur de blocs)
+- Newsletter (abonnement, campagnes, SMTP)
+- Inscription membres + validation licences + espace membre + carte PDF
+- Pop-up annonces (10 thèmes, compte à rebours)
+- Traduction multilingue 10 langues (bouton 🌐 en haut à droite)
+- En-têtes personnalisables sur chaque page native
 
-### Hébergeurs compatibles :
-- o2switch (recommandé, français, ~7€/mois)
-- OVH / Infomaniak / PlanetHoster
-- LWS / Hostinger / Ionos
+**Portail bénévoles**
+- Dashboard, planning événements, tâches Kanban, chat temps réel
+- Documents (upload, prévisualisation, droits par fichier et par bénévole)
+- Annuaire, alertes, droits granulaires par bénévole
 
-### Ce dont vous aurez besoin :
-- Un nom de domaine (ex: www.monclub.fr)
-- Un accès FTP (fourni par votre hébergeur)
-- FileZilla (logiciel FTP gratuit : filezilla-project.org)
-- Les identifiants de votre base de données (dans votre espace client)
-
----
-
-## 🚀 Installation — Étape par étape
-
-### ÉTAPE 1 — Créer la base de données
-
-1. Connectez-vous à votre espace client hébergeur
-2. Allez dans "Bases de données" ou "MySQL"
-3. Cliquez "Créer une base de données"
-4. Notez bien :
-   - le nom de la base (ex: monclub_db)
-   - le nom d'utilisateur (ex: monclub_user)
-   - le mot de passe de la base
-   - le serveur (souvent localhost)
+**Administration complète**
+- Membres, planning, galerie, vidéos, boutique, articles, pages, menu
+- Paramètres (apparence, SMTP, paiements, reCAPTCHA, traduction, footer)
+- Mise à jour automatique via GitHub (un clic)
+- Migrations BDD, état des tables, FAQ intégrée
 
 ---
 
-### ÉTAPE 2 — Uploader les fichiers sur votre serveur
+## 🚀 Installation
 
-1. Décompressez clubcms-final.zip sur votre ordinateur
-2. Ouvrez FileZilla
-3. Connectez-vous à votre serveur FTP
-4. Naviguez vers le dossier public_html (ou www, ou htdocs)
-5. Glissez-déposez TOUT LE CONTENU du dossier clubcms/ dans ce dossier
+**Prérequis :** PHP 8.1+, MySQL 5.7+, extensions : `pdo_mysql` `gd` `mbstring` `curl` `zip`
 
-ATTENTION : Uploadez le contenu du dossier, pas le dossier lui-même.
-Votre index.php doit être directement dans public_html/.
+1. Déposez les fichiers à la racine de votre hébergement
+2. Ouvrez `votresite.fr/install.php`
+3. Suivez les 4 étapes (vérification → BDD → club → admin)
+4. Supprimez `install.php` après installation
 
----
-
-### ÉTAPE 3 — Lancer l'assistant d'installation
-
-1. Ouvrez votre navigateur
-2. Tapez : https://www.votresite.fr/install.php
-3. Suivez les 5 étapes :
-
-ETAPE 1/5 — Base de données
-Remplissez avec les infos de l'étape 1. Hôte : localhost dans 99% des cas.
-
-ETAPE 2/5 — Votre club
-Nom, sport, couleurs, polices, logo, photo de bannière.
-
-ETAPE 3/5 — Compte administrateur
-Votre email et mot de passe (8 caractères minimum). Ce compte a tous les droits.
-
-ETAPE 4/5 — Emails et paiements (optionnel)
-Vous pouvez passer cette étape et configurer ça plus tard.
-
-ETAPE 5/5 — Finalisation
-Cliquez "Lancer l'installation". C'est terminé !
+> L'assistant d'installation vérifie automatiquement chaque prérequis et indique comment l'activer selon votre environnement (XAMPP, cPanel, Plesk, o2switch, Hostinger…).
 
 ---
 
-### ÉTAPE 4 — IMPORTANT : Supprimer install.php
+## 🔐 Rôles
 
-Après l'installation, supprimez le fichier install.php via FileZilla.
-C'est une sécurité essentielle.
-
----
-
-### ÉTAPE 5 — Vérifier que tout fonctionne
-
-Allez sur https://www.votresite.fr → vous voyez la page d'accueil.
-Connectez-vous sur https://www.votresite.fr/admin avec vos identifiants.
+`member` → `benevole` → `coach` → `admin` → `superadmin`
 
 ---
 
-## 👥 Les 4 types d'utilisateurs
+## 🔄 Mise à jour
 
-Super Administrateur : Tout (paramètres, paiements, modules, apparence)
-Administrateur : Articles, galerie, boutique, modération forum
-Coach : Gérer les créneaux, valider les licences, voir les membres
-Membre : Son profil, forum, boutique, planning, galerie
+Admin → Système → Mise à jour → **"⬇️ Mettre à jour maintenant"**
 
-Pour changer le rôle d'un membre : Admin > Membres > cliquez sur son rôle
+Les fichiers PHP sont mis à jour automatiquement depuis GitHub. `config/config.php` et `uploads/` ne sont jamais touchés.
+
+---
+---
+
+## Documentation détaillée
+
+### Page d'accueil
+
+La page d'accueil se configure entièrement via **Admin → Pages → onglet Accueil**.
+
+**Hero :** titre, sous-titre, image de fond, 2 boutons d'action configurables.
+
+**Barre de statistiques :** jusqu'à 4 cases, chacune avec un type au choix :
+- Auto : membres actifs, discussions forum, créneaux à venir, photos, articles, vidéos
+- Personnalisé : texte libre ("150+", "Depuis 2010", "24h/24"…)
+- Activable/désactivable en un toggle
+
+**Blocs de contenu :** texte, image, colonnes, séparateur — ajoutés via l'éditeur de blocs.
 
 ---
 
-## ⚙️ Activer / désactiver des modules
+### Planning
 
-Admin > Modules
-
-- Forum : discussions entre membres
-- Boutique : vendre des articles
-- Galerie : albums photos
-- Planning : calendrier et réservations
-
-Pour chaque module :
-- Activer ou désactiver complètement
-- Exiger une connexion pour y accéder
+Créneaux avec types colorés (Libre, Entraînement, Événement, Compétition, Fermé). Les membres s'inscrivent en ligne selon des critères configurables (texte, liste, case à cocher). Export PDF. Les bénévoles peuvent s'inscrire comme encadrants — visibles dans l'onglet Inscriptions de l'admin.
 
 ---
 
-## 📅 Créer un créneau dans le planning
+### Médiathèque vidéos
 
-1. Admin > Planning > "+ Nouveau créneau"
-2. Titre, date, heure de début et de fin
-3. Type : Ouverture libre / Entraînement / Événement / Fermeture
-4. Optionnel : activez "Inscription requise"
-   - Formulaire interne : inscription directe sur le site
-   - URL externe : redirige vers un Google Form
-5. Cliquez Créer
+Dossiers de vidéos configurables. Deux modes de lecture :
+- **Fichier local** (mp4, webm, mov…) : lecteur HTML5 intégré. Si le téléchargement est désactivé, le clic droit et le bouton de téléchargement sont bloqués côté navigateur.
+- **Embed** (YouTube, Vimeo) : coller l'URL d'intégration.
+
+Miniature personnalisable. Accès public ou membres uniquement par dossier et par vidéo. Ajout au menu via Admin → Menu → "🎬 Vidéos".
 
 ---
 
-## 🛒 Ajouter un produit en boutique
+### Portail bénévoles
 
-1. Admin > Boutique > Ajouter
-2. Nom, description, prix, stock, photos
-3. Variantes (taille, couleur...) si besoin
-4. Publiez
+Accessible aux rôles `benevole`, `coach`, `admin`, `superadmin`.
 
-Pour activer le paiement en ligne : Admin > Paramètres > Paiements
+**Tâches Kanban :** colonnes À faire / En cours / Terminé. Nombre de bénévoles nécessaires configurable. Bouton "🙋 Je m'en charge" visible de tous — se bloque quand le quota est atteint. Les bénévoles peuvent suggérer des tâches, l'admin valide ou refuse avec une raison.
 
----
+**Chat temps réel :** canaux configurables, polling toutes les 3 secondes, messages stockés en BDD. Mute par les admins.
 
-## 📸 Ajouter des photos
+**Documents :**
+- Upload : PDF, Word, Excel, PowerPoint, images, ZIP, MP4…
+- Prévisualisation inline (images) ou iframe (PDF)
+- Droits de visibilité et de téléchargement par document : Tous / Coachs+ / Admins / Bénévoles spécifiques (sélection nominative)
+- Qui peut uploader / créer des dossiers : configurable dans Admin → Bénévoles → onglet Documents
 
-1. Admin > Galerie > Créer un dossier (ex: "Tournoi 2025")
-2. Vous pouvez créer des sous-dossiers dans un dossier
-3. Admin > Galerie > Uploader des photos
-4. Sélectionnez le dossier et uploadez plusieurs photos d'un coup
+**Planning bénévoles :** événements bénévoles + créneaux du planning site fusionnés. Bouton "🤝 Je serai bénévole ce jour là" pour les créneaux site (liste des encadrants visible dans Admin → Planning → Inscriptions).
 
 ---
 
-## 📄 Valider les licences des membres
+### Traduction multilingue
 
-1. Admin > Licences
-2. Voyez les licences "en attente"
-3. Cliquez Valider ou Refuser
+Activable dans Admin → Paramètres → Général. Un bouton 🌐 apparaît en haut à droite du site (position fixe, indépendant de la barre de navigation). 10 langues disponibles avec leurs drapeaux. Powered by Google Translate (gratuit, invisible pour l'utilisateur).
 
 ---
 
-## 🪪 Carte membre PDF
+### Google reCAPTCHA v3
 
-Générée automatiquement quand un membre complète son profil.
-- Format carte bancaire
-- Couleurs et logo du club
-- Signée numériquement (impossible à falsifier)
-- Vérifiable par le staff sur /verifier-carte
+Admin → Paramètres → Inscription → section reCAPTCHA.
 
----
+1. Créer un site sur [google.com/recaptcha/admin/create](https://www.google.com/recaptcha/admin/create) (type v3)
+2. Ajouter votre domaine (ex: `monclub.fr`)
+3. Copier clé site + clé secrète dans l'admin
 
-## 📧 Emails automatiques
-
-Inscription > le nouveau membre
-Vérification email > le nouveau membre
-Mot de passe oublié > le membre
-Confirmation de commande > l'acheteur
-Nouvelle réponse forum > l'auteur du topic
-Nouvelle galerie publiée > tous les membres
+Le captcha est invisible pour l'utilisateur (analyse comportementale, score 0–1). En local (localhost), il est automatiquement bypassé.
 
 ---
 
-## 🔧 Problèmes fréquents
+### SMTP — Configuration email
 
-Page blanche :
-→ Vérifiez que PHP 8.2+ est activé chez votre hébergeur.
-→ Vérifiez que config/config.php existe.
+Admin → Paramètres → Emails
 
-"Erreur de connexion à la base de données" :
-→ Vérifiez les identifiants BDD (hôte, nom, utilisateur, mot de passe).
-→ Sur certains hébergeurs, l'hôte n'est pas localhost mais une adresse spécifique.
-
-Emails qui n'arrivent pas :
-→ Admin > Paramètres > Emails : vérifiez les paramètres SMTP.
-→ Regardez dans les spams.
-
-Images qui ne s'affichent pas :
-→ Le dossier assets/uploads/ doit avoir les droits 755.
-→ Dans FileZilla : clic droit sur le dossier > Permissions > 755.
-
-"404" sur toutes les pages :
-→ Le fichier .htaccess n'est pas uploadé (fichier caché).
-→ Dans FileZilla : menu Serveur > Afficher les fichiers cachés.
-→ Vérifiez que mod_rewrite est activé chez votre hébergeur.
+| Hébergeur | Hôte SMTP | Port |
+|-----------|-----------|------|
+| Gmail | smtp.gmail.com | 587 |
+| OVH | ssl0.ovh.net | 465 |
+| o2switch | mail.votredomaine.fr | 587 |
+| Infomaniak | mail.infomaniak.com | 587 |
+| Hostinger | smtp.hostinger.com | 587 |
 
 ---
 
-## 🔁 Déployer sur un autre club
+### Mise à jour automatique
 
-Pour chaque nouveau club :
-1. Nouveau nom de domaine
-2. Nouvelle base de données
-3. Uploadez les fichiers dans le nouveau dossier
-4. Lancez install.php avec les infos du nouveau club
-5. Chaque site est 100% indépendant
+**Admin → Système → 🔄 Mise à jour**
 
----
+Le CMS se connecte à `github.com/DevHBB/CMS_Club` via l'API GitHub. Si une nouvelle version (tag) est disponible, une bannière violette s'affiche avec le bouton "⬇️ Mettre à jour maintenant".
 
-## 📁 Structure des fichiers
+La mise à jour :
+1. Télécharge le ZIP de la release (cURL ou file_get_contents selon disponibilité)
+2. Extrait dans un dossier temporaire
+3. Copie les fichiers **sauf** `config/config.php` et `uploads/` (jamais touchés)
+4. Lance toutes les migrations BDD automatiquement
+5. Affiche un journal pas à pas avec le statut de chaque étape
 
-clubcms/
-├── install.php      → Assistant d'installation (A SUPPRIMER après)
-├── index.php        → Coeur du site (ne pas toucher)
-├── .htaccess        → Créé automatiquement (ne pas supprimer)
-├── config/          → Créé automatiquement (ne pas modifier)
-├── core/            → Moteur du site (ne pas toucher)
-├── modules/         → Fonctionnalités (forum, boutique, galerie...)
-├── admin/           → Panneau d'administration
-├── templates/       → Mise en page commune
-└── assets/
-    ├── css/         → Style du site
-    ├── js/          → Animations
-    └── uploads/     → Vos fichiers (logos, photos...)
+Pour publier une nouvelle version : créer une **Release GitHub** avec un tag `v1.5.0`.
 
 ---
 
-ClubCMS v1.0 — Pour tous les clubs et associations sportives
+### Footer personnalisable
+
+Admin → Paramètres → Général → **Mention pied de page**
+
+Exemples :
+- `© 2025 MonClub — Site propulsé par Valentin`
+- `Tous droits réservés — MonClub`
+
+Laissé vide = texte automatique avec le nom du club.
 
 ---
 
-## 🖥️ Configuration XAMPP (développement local Windows)
+### En-têtes de pages
 
-Si les pages d'articles donnent une erreur 404 sur XAMPP, c'est que `mod_rewrite` n'est pas activé ou que `AllowOverride` n'est pas configuré.
+Admin → 🏷️ En-têtes pages
 
-### Activer mod_rewrite sur XAMPP
+Titre + sous-titre affichés dans la bannière hero de chaque page native : Planning, Forum, Galerie, Boutique, Vidéos, Actualités. Laissé vide = titre par défaut.
 
-1. Ouvrez **XAMPP Control Panel** → cliquez **Config** à côté d'Apache → **Apache (httpd.conf)**
-2. Cherchez la ligne `#LoadModule rewrite_module` et retirez le `#` :
-   ```
-   LoadModule rewrite_module modules/mod_rewrite.so
-   ```
-3. Cherchez le bloc `<Directory "C:/xampp/htdocs">` et changez :
-   ```
-   AllowOverride None
-   ```
-   en :
-   ```
-   AllowOverride All
-   ```
-4. Sauvegardez et **redémarrez Apache** dans XAMPP Control Panel
+---
 
-### Vérifier que ça fonctionne
+### Structure des fichiers
 
-Allez sur `http://localhost/actualites` — vous devriez voir la liste des articles.
+```
+/
+├── admin/          Administration
+├── assets/         CSS, JS, images
+├── config/         ← config.php (NE PAS ÉCRASER)
+├── core/           Moteur PHP
+├── install/        schema.sql
+├── modules/        Pages du site (planning, forum, shop…)
+├── templates/      layout.php, popup.php
+├── uploads/        ← Fichiers utilisateurs (NE PAS ÉCRASER)
+├── install.php     Assistant d'installation (supprimer après)
+└── index.php       Front controller
+```
+
+---
+
+*ClubCMS v1.4.0 — Développé avec ❤️*

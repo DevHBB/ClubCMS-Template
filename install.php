@@ -363,16 +363,44 @@ input[type=color]{width:44px;height:38px;border-radius:8px;border:1px solid var(
           || str_contains(strtolower(__DIR__), 'wamp')
           || str_contains(strtolower(__DIR__), 'laragon');
 
+  $extMsg = "<br><span style='display:inline-block;margin-top:.4rem;line-height:1.9'>"
+           . "🖥️ <strong>XAMPP</strong> : XAMPP Control Panel → Config → <code>php.ini</code> → retirez le <code>;</code> devant l'extension → redémarrez Apache.<br>"
+           . "🌐 <strong>Hébergeur</strong> (OVH, o2switch, Infomaniak…) : panneau de contrôle → <em>Version PHP</em> ou <em>Extensions PHP</em> → activez l'extension.<br>"
+           . "❓ Pas d'accès ? Contactez votre hébergeur en demandant d'activer cette extension PHP."
+           . "</span>";
+
   $checks = [
-    ['PHP ≥ 8.0',                  $phpOk,          "Version détectée : PHP $phpVersion", "Votre serveur utilise PHP $phpVersion. Mettez à jour vers PHP 8.0 ou supérieur."],
-    ['Extension PDO MySQL',        $pdoOk,           "Activée ✓", "Activez pdo_mysql dans php.ini : décommentez <code>extension=pdo_mysql</code>"],
-    ['Extension GD (images)',      $gdOk,            "Activée ✓", "Activez gd dans php.ini : décommentez <code>extension=gd</code>"],
-    ['Extension mbstring',         $mbstringOk,      "Activée ✓", "Activez mbstring dans php.ini"],
-    ['Extension fileinfo',         $fileinfoOk,      "Activée ✓", "Activez fileinfo dans php.ini : décommentez <code>extension=fileinfo</code>"],
-    ['Extension cURL',             $curlOk,          "Activée ✓", "Activez curl dans php.ini : décommentez <code>extension=curl</code>"],
-    ['Dossier config/ accessible', $configWritable,  "Accessible en écriture ✓", "Le dossier config/ n'est pas accessible en écriture. <code>chmod 755 config/</code> ou vérifiez les permissions FTP."],
-    ['Dossier uploads/ accessible',$uploadsWritable, "Accessible en écriture ✓", "Le dossier assets/uploads/ n'est pas accessible en écriture. Faites un clic droit → Permissions → 755 dans FileZilla."],
-    ['mod_rewrite Apache',         $modRewrite,      "Actif ✓ — Les URLs propres fonctionneront", "Non détecté — Les pages articles/forum/galerie retourneront des erreurs 404 sur XAMPP. <a href='#xampp-fix' style='color:var(--accent)'>Voir comment corriger →</a>"],
+    ['PHP ≥ 8.0', $phpOk, "Version détectée : PHP $phpVersion",
+      "Votre serveur utilise PHP $phpVersion. Mettez à jour vers PHP 8.0+. Sur XAMPP : téléchargez une version récente sur apachefriends.org. Sur un hébergeur : changez la version PHP dans votre panneau de contrôle (cPanel → Select PHP Version, Plesk → PHP Settings)."
+    ],
+    ['Extension PDO MySQL', $pdoOk, "Activée ✓",
+      "Nécessaire pour la connexion à la base de données MySQL. " . $extMsg . " (nom de l'extension : <code>pdo_mysql</code>)"
+    ],
+    ['Extension GD (images)', $gdOk, "Activée ✓",
+      "Nécessaire pour le traitement des images (redimensionnement, uploads). " . $extMsg . " (nom : <code>gd</code>) — Activée par défaut chez la plupart des hébergeurs."
+    ],
+    ['Extension mbstring', $mbstringOk, "Activée ✓",
+      "Nécessaire pour la gestion des caractères spéciaux et accents. " . $extMsg . " (nom : <code>mbstring</code>)"
+    ],
+    ['Extension fileinfo', $fileinfoOk, "Activée ✓",
+      "Nécessaire pour détecter le type des fichiers uploadés. " . $extMsg . " (nom : <code>fileinfo</code>)"
+    ],
+    ['Extension cURL', $curlOk, "Activée ✓",
+      "Nécessaire pour les paiements PayPal, le reCAPTCHA et les mises à jour automatiques. " . $extMsg . " (nom : <code>curl</code>) — Activée par défaut chez la plupart des hébergeurs."
+    ],
+    ['Dossier config/ accessible', $configWritable, "Accessible en écriture ✓",
+      "Le dossier <code>config/</code> doit être accessible en écriture. Sur XAMPP : vérifiez que le dossier n'est pas en lecture seule. Sur un hébergeur : via FTP (FileZilla), clic droit sur le dossier → Permissions → mettez <code>755</code>."
+    ],
+    ['Dossier uploads/ accessible', $uploadsWritable, "Accessible en écriture ✓",
+      "Le dossier <code>uploads/</code> doit être accessible en écriture (pour les photos, documents, vidéos…). Via FTP : clic droit → Permissions → <code>755</code>. Sur XAMPP : vérifiez que Windows n'a pas verrouillé le dossier."
+    ],
+    ['mod_rewrite / URL propres', $modRewrite, "Actif ✓ — Les URLs propres fonctionneront",
+      "Nécessaire pour que les URLs du site fonctionnent (/forum, /planning…). "
+      . ($isLocal
+        ? "Sur XAMPP : <a href='#xampp-fix' style='color:var(--accent)'>suivez le guide ci-dessous →</a>"
+        : "Le fichier <code>.htaccess</code> doit être présent à la racine (il est inclus dans le ZIP). Si ça ne fonctionne toujours pas, contactez votre hébergeur en demandant d'activer <strong>AllowOverride All</strong> pour votre domaine."
+      )
+    ],
   ];
 
   $criticalFail = !$phpOk || !$pdoOk || !$configWritable;
@@ -447,6 +475,65 @@ input[type=color]{width:44px;height:38px;border-radius:8px;border:1px solid var(
       <strong style="color:var(--text)">Puis :</strong> Sauvegardez httpd.conf →
       XAMPP Control Panel → Stop Apache → Start Apache →
       <a href="install.php?step=0" style="color:var(--accent)">Revenir ici pour vérifier</a>
+    </div>
+  </div>
+
+  <!-- Guide Hébergeur mutualisé -->
+  <div class="card" style="border-color:rgba(99,102,241,.4);margin-top:1rem">
+    <div class="card-title"><span>🌐</span> Vous êtes sur un hébergeur mutualisé ? (OVH, o2switch, Infomaniak, Hostinger…)</div>
+    <div class="card-desc">Pas de panneau XAMPP ici. Voici comment résoudre chaque problème selon votre hébergeur :</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.75rem">
+      <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">📁 cPanel (OVH mutualisé, HostGator, PlanetHoster…)</div>
+        Connectez-vous à votre espace client<br>
+        → <strong>cPanel</strong> → rubrique "Logiciels"<br>
+        → <strong>Sélectionner une version PHP</strong><br>
+        → Choisissez <strong>PHP 8.1 ou 8.2</strong><br>
+        → Onglet <strong>Extensions</strong><br>
+        → Cochez : <code>pdo_mysql</code>, <code>gd</code>, <code>mbstring</code>, <code>fileinfo</code>, <code>curl</code>, <code>zip</code><br>
+        → Cliquez <strong>Enregistrer</strong>
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">⚙️ Plesk (Infomaniak, LWS, Ionos…)</div>
+        Espace client → <strong>Plesk</strong><br>
+        → Domaines → votre domaine<br>
+        → <strong>Paramètres PHP</strong><br>
+        → Version PHP : choisissez <strong>8.1+</strong><br>
+        → Activez les extensions manquantes<br>
+        → Cliquez <strong>Appliquer</strong>
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">🔧 o2switch (hPanel)</div>
+        Espace client o2switch<br>
+        → <strong>Version PHP multi</strong><br>
+        → Sélectionnez PHP 8.1 ou 8.2<br>
+        → Activez les extensions nécessaires<br>
+        → <strong>Mod_rewrite</strong> : déjà activé par défaut chez o2switch ✅
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">🟣 Hostinger</div>
+        Espace client → <strong>Hébergement</strong><br>
+        → <strong>Configuration PHP</strong><br>
+        → Version : PHP 8.1 ou 8.2<br>
+        → Extensions : activez celles manquantes<br>
+        → Sauvegardez
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">📄 Via fichier php.ini (tous hébergeurs)</div>
+        Créez un fichier <code>php.ini</code> à la racine du site :<br>
+        <code style="display:block;background:rgba(0,0,0,.3);padding:.5rem;border-radius:4px;margin-top:.4rem;line-height:1.7">extension=pdo_mysql<br>extension=gd<br>extension=mbstring<br>extension=fileinfo<br>extension=curl<br>extension=zip</code>
+      </div>
+      <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:.875rem;font-size:.82rem;line-height:1.9">
+        <div style="color:var(--accent2);font-weight:700;margin-bottom:.5rem">📞 En dernier recours</div>
+        Contactez le support de votre hébergeur avec ce message :<br><br>
+        <em style="color:rgba(255,255,255,.7)">"Bonjour, j'installe une application PHP 8.1. J'ai besoin que les extensions suivantes soient activées : pdo_mysql, gd, mbstring, fileinfo, curl, zip. Merci également de confirmer que mod_rewrite est activé."</em>
+      </div>
+    </div>
+
+    <div style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:.875rem;margin-top:1rem;font-size:.82rem">
+      <strong>💡 Bon à savoir :</strong> Sur la plupart des hébergeurs modernes (o2switch, Infomaniak, Hostinger), toutes les extensions sont déjà activées par défaut avec PHP 8.1+.
+      Si vous avez juste une erreur <strong>mod_rewrite</strong>, vérifiez que le fichier <code>.htaccess</code> est bien présent à la racine du site.
     </div>
   </div>
   <?php endif; ?>
