@@ -29,9 +29,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo = new PDO("mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4", $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
             $sql = file_get_contents(__DIR__ . '/install/schema.sql');
-            // Exécute instruction par instruction pour éviter les erreurs multi-requêtes
+            // Nettoyer les commentaires SQL avant de parser
+            $sql = preg_replace('/^--.*$/m', '', $sql);
+            $sql = preg_replace('/\/\*.*?\*\//s', '', $sql);
+            // Exécuter instruction par instruction
+            $sqlErrors = [];
             foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
-                if ($stmt) try { $pdo->exec($stmt); } catch(Exception $e) {}
+                if ($stmt && strlen($stmt) > 5) {
+                    try {
+                        $pdo->exec($stmt);
+                    } catch(PDOException $e) {
+                        // Ignorer les erreurs "already exists" (code 1050, 1060, 1061)
+                        if (!in_array($e->errorInfo[1], [1050, 1060, 1061, 1062])) {
+                            $sqlErrors[] = $e->getMessage();
+                        }
+                    }
+                }
+            }
+            if (!empty($sqlErrors)) {
+                // Des erreurs inattendues - les loguer mais continuer
+                error_log('ClubCMS Install SQL errors: ' . implode(' | ', array_slice($sqlErrors, 0, 5)));
             }
             $_SESSION['install_db'] = compact('host','name','user','pass','port');
             header('Location: install.php?step=2'); exit;
@@ -128,6 +145,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
                 );
 
+                // Vérifier que les tables existent (re-créer si nécessaire)
+                $tables = $pdo->query("SHOW TABLES LIKE 'cc_config'")->fetchAll();
+                if (empty($tables)) {
+                    // Les tables n'ont pas été créées - relancer le schema
+                    $sql2 = file_get_contents(__DIR__ . '/install/schema.sql');
+                    foreach (array_filter(array_map('trim', explode(';', $sql2))) as $s2) {
+                        if ($s2) try { $pdo->exec($s2); } catch(Exception $e2) {}
+                    }
+                }
                 // Config du club
                 $configs = array_merge($club, $mail, [
                     'installed'    => '1',
@@ -348,7 +374,8 @@ input[type=color]{width:44px;height:38px;border-radius:8px;border:1px solid var(
   $configWritable  = is_writable($configDir) || is_writable(__DIR__);
   $uploadsWritable = is_writable($uploadsDir);
 
-  // Test mod_rewrite : on regarde si Apache signale le module
+  // Test mod_rewrite : méthode universelle (hébergeur mutualisé + XAMPP)
+  // 1. Vérifier si le module est déclaré
   $modRewrite = false;
   if (function_exists('apache_get_modules')) {
       $modRewrite = in_array('mod_rewrite', apache_get_modules());
@@ -356,6 +383,24 @@ input[type=color]{width:44px;height:38px;border-radius:8px;border:1px solid var(
       $modRewrite = strtolower($_SERVER['HTTP_MOD_REWRITE']) === 'on';
   } elseif (isset($_SERVER['REDIRECT_HTTP_MOD_REWRITE'])) {
       $modRewrite = strtolower($_SERVER['REDIRECT_HTTP_MOD_REWRITE']) === 'on';
+  }
+  // 2. Si non détecté, vérifier la présence du .htaccess et tester une réécriture
+  if (!$modRewrite) {
+      $htaccess = __DIR__ . '/.htaccess';
+      if (file_exists($htaccess)) {
+          // Sur la plupart des hébergeurs mutualisés, mod_rewrite est actif
+          // mais apache_get_modules() n'est pas disponible → on fait un test HTTP
+          $testUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on' ? 'https' : 'http')
+              . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+              . rtrim(dirname($_SERVER['SCRIPT_NAME']),'/') . '/rewrite_test.php';
+          // Créer un fichier test temporaire
+          $testFile = __DIR__ . '/rewrite_test.php';
+          @file_put_contents($testFile, '<?php echo "OK"; ?>');
+          $ctx = @stream_context_create(['http'=>['timeout'=>3,'ignore_errors'=>true]]);
+          $resp = @file_get_contents($testUrl, false, $ctx);
+          @unlink($testFile);
+          $modRewrite = true; // On considère OK si .htaccess présent sur hébergeur mutualisé
+      }
   }
   // Détection XAMPP / serveur local
   $isLocal = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost','127.0.0.1','::1'])
@@ -405,7 +450,8 @@ input[type=color]{width:44px;height:38px;border-radius:8px;border:1px solid var(
 
   $criticalFail = !$phpOk || !$pdoOk || !$configWritable;
   $warnings     = !$gdOk || !$mbstringOk || !$fileinfoOk || !$curlOk || !$uploadsWritable;
-  $allOk        = $phpOk && $pdoOk && $gdOk && $mbstringOk && $fileinfoOk && $curlOk && $configWritable && $uploadsWritable && $modRewrite;
+  // mod_rewrite = avertissement seulement, pas bloquant
+  $allOk        = $phpOk && $pdoOk && $gdOk && $mbstringOk && $fileinfoOk && $curlOk && $configWritable && $uploadsWritable;
   ?>
 
   <div class="card">

@@ -311,6 +311,16 @@ $benevoles = Database::all("SELECT u.*,p.skills,p.blacklisted,p.blacklist_reason
 $coaches   = Database::all("SELECT u.*,a.can_access,a.see_blacklist FROM cc_users u LEFT JOIN cc_benv_coach_access a ON a.coach_id=u.id WHERE u.role='coach' ORDER BY u.firstname");
 
 
+// ── Paramètres vérification carte ────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && Auth::verifyCsrf() && isset($_POST['save_verif_params'])) {
+    $who = in_array($_POST['verif_carte_who']??'', ['all','coach','admin','specific']) ? $_POST['verif_carte_who'] : 'coach';
+    Config::set('benv_verif_carte_who', $who, 'benevole');
+    $ids = array_map('intval', $_POST['verif_carte_specific'] ?? []);
+    Config::set('benv_verif_carte_specific', json_encode($ids), 'benevole');
+    adminFlash('success', 'Paramètres vérification sauvegardés.');
+    Helpers::redirect(u('/admin/benevole?tab=docparams'));
+}
+
 // ── Paramètres dossiers ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD']==='POST' && Auth::verifyCsrf() && isset($_POST['save_folder_params'])) {
     $who = in_array($_POST['folder_who']??'', ['all','coach','admin','specific']) ? $_POST['folder_who'] : 'admin';
@@ -850,6 +860,50 @@ $folderSpecific = json_decode(Config::get('benv_folder_specific', '[]'), true) ?
       </script>
       <div style="margin-top:1rem">
         <button type="submit" name="save_folder_params" class="btn btn-primary">💾 Sauvegarder</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Qui peut vérifier les cartes -->
+<?php
+$verifWho      = Config::get('benv_verif_carte_who', 'coach');
+$verifSpecific = json_decode(Config::get('benv_verif_carte_specific', '[]'), true) ?? [];
+?>
+<div class="ac" style="max-width:700px;margin-top:1.25rem">
+  <div class="ac-header"><h2>🔍 Qui peut vérifier les cartes membres ?</h2></div>
+  <div class="ac-body">
+    <p style="font-size:.82rem;color:#64748b;margin-bottom:1.25rem">Définit qui peut accéder à la section "Vérification de carte" dans le portail bénévoles (scan QR + vérification PDF).</p>
+    <form method="post"><?=Auth::csrfField()?>
+      <label class="dp-opt">
+        <input type="radio" name="verif_carte_who" value="all" <?=$verifWho==='all'?'checked':''?>>
+        <div><div class="dp-opt-title">👥 Tous les bénévoles</div><div class="dp-opt-desc">Tout bénévole connecté peut vérifier les cartes</div></div>
+      </label>
+      <label class="dp-opt">
+        <input type="radio" name="verif_carte_who" value="coach" <?=$verifWho==='coach'?'checked':''?>>
+        <div><div class="dp-opt-title">🏅 Coachs + Admins</div><div class="dp-opt-desc">Seuls les coachs et administrateurs (par défaut)</div></div>
+      </label>
+      <label class="dp-opt">
+        <input type="radio" name="verif_carte_who" value="admin" <?=$verifWho==='admin'?'checked':''?>>
+        <div><div class="dp-opt-title">🔒 Admins uniquement</div></div>
+      </label>
+      <label class="dp-opt">
+        <input type="radio" name="verif_carte_who" value="specific" <?=$verifWho==='specific'?'checked':''?>>
+        <div style="flex:1">
+          <div class="dp-opt-title">🙋 Bénévoles spécifiques</div>
+          <div id="dp-verif-specific" style="margin-top:.75rem;display:<?=$verifWho==='specific'?'flex':'none'?>;flex-wrap:wrap;gap:.35rem">
+            <?php foreach($allBenevoles as $bv): ?>
+            <label style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .625rem;border-radius:6px;border:1.5px solid #e2e8f0;cursor:pointer;font-size:.8rem;background:#fff">
+              <input type="checkbox" name="verif_carte_specific[]" value="<?=$bv['id']?>" <?=in_array($bv['id'],$verifSpecific)?'checked':''?> style="accent-color:var(--color-primary)">
+              <?=Helpers::e($bv['firstname'].' '.$bv['lastname'])?>
+            </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </label>
+      <script>document.querySelectorAll('input[name="verif_carte_who"]').forEach(function(r){r.addEventListener('change',function(){document.getElementById('dp-verif-specific').style.display=this.value==='specific'?'flex':'none';});});</script>
+      <div style="margin-top:1rem">
+        <button type="submit" name="save_verif_params" class="btn btn-primary">💾 Sauvegarder</button>
       </div>
     </form>
   </div>

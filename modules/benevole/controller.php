@@ -480,16 +480,76 @@ $channels = [];
 try { $channels = Database::all("SELECT * FROM cc_benv_channels ORDER BY created_at"); } catch(Exception $e) {}
 if (empty($channels)) $channels = [['id'=>0,'name'=>'Général','slug'=>'general','open'=>1]];
 
+// Vérifier accès section vérification carte
+$verifWho  = Config::get('benv_verif_carte_who', 'coach');
+$verifSpec = json_decode(Config::get('benv_verif_carte_specific', '[]'), true) ?? [];
+$canVerifCarte = $isAdmin || $isCoach
+    || ($verifWho === 'all')
+    || ($verifWho === 'specific' && in_array($userId, $verifSpec));
+
 $pages = [
-    'dashboard' => ['🏠','Tableau de bord','/benevole'],
-    'planning'  => ['📅','Planning',       '/benevole/planning'],
-    'taches'    => ['✅','Tâches',         '/benevole/taches'],
-    'chat'      => ['💬','Chat',           '/benevole/chat'],
-    'documents' => ['📁','Documents',      '/benevole/documents'],
-    'annuaire'  => ['👥','Annuaire',        '/benevole/annuaire'],
+    'dashboard'    => ['🏠','Tableau de bord','/benevole'],
+    'planning'     => ['📅','Planning',       '/benevole/planning'],
+    'taches'       => ['✅','Tâches',         '/benevole/taches'],
+    'chat'         => ['💬','Chat',           '/benevole/chat'],
+    'documents'    => ['📁','Documents',      '/benevole/documents'],
+    'annuaire'     => ['👥','Annuaire',        '/benevole/annuaire'],
 ];
+if ($canVerifCarte) {
+    $pages['verif'] = ['🔍','Vérif. carte', '/benevole/verif'];
+}
 $initials = strtoupper(substr($user['firstname']??'?',0,1).substr($user['lastname']??'',0,1));
 $pageTitle = 'Espace Bénévoles';
+
+// ── Vérification QR (AJAX depuis le portail bénévole) ─────────
+if (isset($_GET['benv_verify_qr']) && $canVerifCarte) {
+    $uid  = (int)($_GET['id']   ?? 0);
+    $hash = trim($_GET['hash']  ?? '');
+    header('Content-Type: application/json');
+    if ($uid && $hash) {
+        $member = Database::one("SELECT id,firstname,lastname,member_card_hash FROM cc_users WHERE id=?", [$uid]);
+        if ($member && $member['member_card_hash'] === $hash) {
+            echo json_encode(['valid'=>true,'name'=>$member['firstname'].' '.$member['lastname']]);
+        } else {
+            echo json_encode(['valid'=>false]);
+        }
+    } else {
+        echo json_encode(['valid'=>false]);
+    }
+    exit;
+}
+
+// ── Vérification PDF ──────────────────────────────────────────
+$cardVerifyResult = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_card_pdf']) && $canVerifCarte) {
+    if (empty($_FILES['card_pdf']['tmp_name']) || $_FILES['card_pdf']['size'] === 0) {
+        $cardVerifyResult = ['type'=>'warning','msg'=>'⚠️ Aucun fichier reçu.'];
+    } else {
+        $pdfContent = @file_get_contents($_FILES['card_pdf']['tmp_name']);
+        if (!$pdfContent || substr($pdfContent,0,4) !== '%PDF') {
+            $cardVerifyResult = ['type'=>'error','msg'=>"❌ Fichier invalide — ce n'est pas un PDF."];
+        } else {
+            $hashFromPdf = null; $memberIdFromPdf = null;
+            if (preg_match('/CLUBCMS-HASH:([a-f0-9]{12})/i', $pdfContent, $mh)) $hashFromPdf = strtolower($mh[1]);
+            if (preg_match('/clubcms-verify:[a-f0-9]+:member:([0-9]+)/i', $pdfContent, $mi)) $memberIdFromPdf = (int)$mi[1];
+            if (!$hashFromPdf || !$memberIdFromPdf) {
+                $cardVerifyResult = ['type'=>'error','msg'=>"❌ <strong>Document non authentique</strong> — Ce PDF n'a pas été généré par ce site."];
+            } else {
+                $member = Database::one("SELECT id,firstname,lastname,member_card_hash FROM cc_users WHERE id=?",[$memberIdFromPdf]);
+                if (!$member) {
+                    $cardVerifyResult = ['type'=>'error','msg'=>'❌ <strong>Membre introuvable</strong>.'];
+                } elseif (!$member['member_card_hash']) {
+                    $cardVerifyResult = ['type'=>'error','msg'=>'❌ <strong>Carte jamais générée</strong>.'];
+                } elseif (strtolower($member['member_card_hash']) !== $hashFromPdf) {
+                    $cardVerifyResult = ['type'=>'error','msg'=>"❌ <strong>Carte INVALIDE</strong> — La signature ne correspond pas. Document falsifié."];
+                } else {
+                    $cardVerifyResult = ['type'=>'success','msg'=>'✅ <strong>Carte AUTHENTIQUE</strong> — '.Helpers::e($member['firstname'].' '.$member['lastname']).' (membre #'.$memberIdFromPdf.').'];
+                }
+            }
+        }
+    }
+}
+
 ob_start();
 ?>
 <!DOCTYPE html>
@@ -1459,3 +1519,94 @@ function dismissAlert(id){
 }
 </script>
 <?php $content=ob_get_clean(); echo $content; ?>
+<?php elseif($action==='verif' && $canVerifCarte):
+$benvVerifUrl = u('/benevole/verif');
+?>
+<div class="bcard" style="max-width:560px;margin:0 auto">
+  <div class="bcard-h"><h2>🔍 Vérification de carte membre</h2></div>
+  <div class="bcard-b">
+
+    <!-- Onglets internes -->
+    <?php $vtab = $_GET['vtab'] ?? 'qr'; ?>
+    <div style="display:flex;gap:.35rem;margin-bottom:1.25rem">
+      <a href="<?=u('/benevole/verif?vtab=qr')?>"  class="bbt <?=$vtab==='qr'?'bbt-p':'bbt-g'?>">📷 Scanner QR</a>
+      <a href="<?=u('/benevole/verif?vtab=pdf')?>" class="bbt <?=$vtab==='pdf'?'bbt-p':'bbt-g'?>">📄 Vérifier PDF</a>
+    </div>
+
+    <?php if($vtab==='qr'): ?>
+    <!-- ── QR Code ── -->
+    <p style="font-size:.875rem;color:#64748b;margin-bottom:1rem">Scannez le QR code de la carte membre pour vérifier son authenticité.</p>
+    <div id="benv-qr-result" style="display:none;border-radius:10px;padding:.875rem;margin-bottom:1rem;font-size:.9rem;font-weight:600;text-align:center"></div>
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <button type="button" id="benv-qr-start" onclick="benvQrStart()" class="bbt bbt-p" style="flex:1;justify-content:center">📷 Démarrer</button>
+      <button type="button" id="benv-qr-stop"  onclick="benvQrStop()"  class="bbt bbt-g" style="flex:1;justify-content:center;display:none">⏹ Arrêter</button>
+    </div>
+    <div id="benv-qr-reader" style="width:100%;border-radius:10px;overflow:hidden;background:#000"></div>
+    <p style="font-size:.75rem;color:#94a3b8;margin-top:.75rem;text-align:center">Pointez la caméra vers le QR code. Résultat instantané.</p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
+    <script>
+    var _benvQr = null;
+    var _benvVerifUrl = "<?=u('/benevole/verif')?>";
+    function benvQrStart(){
+      document.getElementById("benv-qr-start").style.display="none";
+      document.getElementById("benv-qr-stop").style.display="inline-flex";
+      document.getElementById("benv-qr-result").style.display="none";
+      _benvQr = new Html5Qrcode("benv-qr-reader");
+      Html5Qrcode.getCameras().then(function(cams){
+        if(!cams||!cams.length){benvQrResult(false,"Aucune camera detectee.");benvQrStop();return;}
+        var camId=cams[cams.length-1].id;
+        _benvQr.start(camId,{fps:10,qrbox:{width:220,height:220}},function(text){
+          var m=text.match(/verifier-carte\?id=(\d+)&hash=([a-f0-9]+)/);
+          if(m){
+            fetch(_benvVerifUrl+"&benv_verify_qr=1&id="+m[1]+"&hash="+m[2])
+              .then(function(r){return r.json();})
+              .then(function(data){
+                if(data.valid){benvQrResult(true,"Membre reconnu : "+data.name);}
+                else{benvQrResult(false,"QR code invalide ou membre inconnu.");}
+              }).catch(function(){benvQrResult(false,"Erreur de verification.");});
+            benvQrStop();
+          } else {
+            benvQrResult(false,"QR non reconnu.");benvQrStop();
+          }
+        },function(){}).catch(function(e){benvQrResult(false,"Camera inaccessible : "+e);});
+      });
+    }
+    function benvQrStop(){
+      if(_benvQr){_benvQr.stop().catch(function(){});_benvQr=null;}
+      document.getElementById("benv-qr-start").style.display="inline-flex";
+      document.getElementById("benv-qr-stop").style.display="none";
+    }
+    function benvQrResult(ok,msg){
+      var el=document.getElementById("benv-qr-result");
+      el.style.display="block";
+      el.style.background=ok?"#f0fdf4":"#fff5f5";
+      el.style.border="1.5px solid "+(ok?"#bbf7d0":"#fecaca");
+      el.style.color=ok?"#166534":"#991b1b";
+      el.innerHTML=(ok?"✅ ":"❌ ")+msg;
+    }
+    </script>
+
+    <?php else: ?>
+    <!-- ── Vérification PDF ── -->
+    <p style="font-size:.875rem;color:#64748b;margin-bottom:1rem">Uploadez le PDF de la carte membre pour vérifier son authenticité.</p>
+    <?php if($cardVerifyResult): ?>
+    <div class="bcard" style="background:<?=$cardVerifyResult['type']==='success'?'#f0fdf4':($cardVerifyResult['type']==='warning'?'#fffbeb':'#fff5f5')?>;border-color:<?=$cardVerifyResult['type']==='success'?'#bbf7d0':($cardVerifyResult['type']==='warning'?'#fde68a':'#fecaca')?>;margin-bottom:1rem">
+      <div class="bcard-b" style="color:<?=$cardVerifyResult['type']==='success'?'#166534':($cardVerifyResult['type']==='warning'?'#92400e':'#991b1b')?>;font-weight:600"><?=$cardVerifyResult['msg']?></div>
+    </div>
+    <?php endif; ?>
+    <form method="post" enctype="multipart/form-data">
+      <?=Auth::csrfField()?>
+      <div style="margin-bottom:.875rem">
+        <label style="font-size:.78rem;font-weight:600;color:#64748b;display:block;margin-bottom:.35rem">Fichier PDF de la carte membre</label>
+        <input type="file" name="card_pdf" accept="application/pdf" required class="bi" style="padding:.4rem">
+      </div>
+      <button type="submit" name="verify_card_pdf" value="1" class="bbt bbt-p">🔍 Vérifier l'authenticité</button>
+    </form>
+    <?php endif; ?>
+
+  </div>
+</div>
+
+<?php
+
