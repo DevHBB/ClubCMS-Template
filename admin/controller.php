@@ -58,6 +58,7 @@ $map = [
     'shop'       => 'shop_admin',
     'gallery'    => 'gallery_admin',
     'videos'     => 'videos_admin',
+    'results'    => 'results_admin',
     'articles'   => 'articles_admin',
     'pages'      => 'pages_admin',
     'pageheaders'=> 'pageheaders_admin',

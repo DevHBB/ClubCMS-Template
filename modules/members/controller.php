@@ -12,6 +12,40 @@ if (!$user) {
     header('Location: ' . u('/login'));
     exit;
 }
+// ── Export RGPD ───────────────────────────────────────────────
+if (isset($_GET['export_rgpd'])) {
+    $uid = Auth::id();
+    $data = [
+        'compte'      => Database::one("SELECT id,firstname,lastname,email,phone,birthdate,address,city,zip,role,status,created_at FROM cc_users WHERE id=?", [$uid]),
+        'commandes'   => Database::all("SELECT * FROM cc_shop_orders WHERE user_id=?", [$uid]),
+        'reservations'=> Database::all("SELECT s.title,s.date_start,b.status,b.created_at FROM cc_planning_bookings b JOIN cc_planning_slots s ON s.id=b.slot_id WHERE b.user_id=?", [$uid]),
+        'forum'       => Database::all("SELECT t.title,p.content,p.created_at FROM cc_forum_posts p JOIN cc_forum_topics t ON t.id=p.topic_id WHERE p.user_id=?", [$uid]),
+    ];
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="mes-donnees-'.date('Y-m-d').'.json"');
+    echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// ── Demande suppression compte ────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_delete']) && Auth::verifyCsrf()) {
+    $reason = Helpers::sanitize($_POST['delete_reason'] ?? '');
+    Config::set('delete_request_' . Auth::id(), json_encode([
+        'user_id' => Auth::id(), 'name' => $user['firstname'].' '.$user['lastname'],
+        'email' => $user['email'], 'reason' => $reason, 'requested_at' => date('Y-m-d H:i:s'),
+    ]), 'delete_requests');
+    try {
+        Mailer::send(Config::get('club_email'), 'Admin',
+            '🗑 Demande de suppression — '.$user['firstname'].' '.$user['lastname'],
+            '<p><strong>'.$user['firstname'].' '.$user['lastname'].'</strong> ('.$user['email'].') demande la suppression de son compte.</p>'.
+            ($reason ? '<p>Motif : '.htmlspecialchars($reason).'</p>' : '')
+        );
+    } catch(Exception $e) {}
+    $_SESSION['flash'] = ['type'=>'success','msg'=>'Votre demande a été envoyée. Un administrateur la traitera sous 30 jours.'];
+    Helpers::redirect(u('/membre/confidentialite'));
+}
+
+
 $action = $segments[1] ?? 'dashboard';
 
 // ── TÉLÉCHARGEMENT CARTE PDF — avant tout output HTML ─────────
@@ -192,6 +226,9 @@ ob_start();
       </a>
       <a href="<?=u('/membre/commandes')?>" class="member-nav-item <?= $action === 'commandes' ? 'active' : '' ?>">
         <span class="mnav-icon">📦</span> Mes commandes
+      </a>
+      <a href="<?=u('/membre/confidentialite')?>" class="member-nav-item <?= $action === 'confidentialite' ? 'active' : '' ?>">
+        <span class="mnav-icon">🔒</span> Mes données
       </a>
       <a href="<?=u('/membre/reservations')?>" class="member-nav-item <?= $action === 'reservations' ? 'active' : '' ?>">
         <span class="mnav-icon">📅</span> Mes réservations
@@ -624,6 +661,51 @@ function showFileName(input) {
 @media(max-width:900px){.member-wrap{grid-template-columns:1fr}.member-sidebar{position:static}.dashboard-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.dashboard-stats{grid-template-columns:1fr 1fr}}
 </style>
+<?php
+<?php <?php elseif ($action === 'confidentialite'): ?>
+<div class="member-section">
+  <h2 style="font-size:1.15rem;font-weight:700;margin-bottom:1.25rem">🔒 Mes données personnelles (RGPD)</h2>
+
+  <!-- Export -->
+  <div style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:1.25rem">
+    <div style="background:#f0fdf4;padding:.875rem 1.25rem;border-bottom:1px solid #e2e8f0">
+      <div style="font-weight:700;color:#16a34a;font-size:.9rem">📦 Exporter mes données</div>
+    </div>
+    <div style="padding:1rem">
+      <p style="font-size:.875rem;color:#64748b;margin-bottom:.875rem">Conformément au RGPD, vous pouvez télécharger toutes vos données (compte, commandes, réservations, forum) au format JSON.</p>
+      <a href="<?=u('/membre/confidentialite')?>?export_rgpd=1" class="btn btn-primary">⬇️ Télécharger mes données</a>
+    </div>
+  </div>
+
+  <!-- Suppression -->
+  <div style="border:1.5px solid #fecaca;border-radius:12px;overflow:hidden">
+    <div style="background:#fff5f5;padding:.875rem 1.25rem;border-bottom:1px solid #fecaca">
+      <div style="font-weight:700;color:#dc2626;font-size:.9rem">🗑 Demander la suppression de mon compte</div>
+    </div>
+    <div style="padding:1rem">
+      <p style="font-size:.875rem;color:#64748b;margin-bottom:.875rem">Droit à l'oubli (RGPD art. 17) — Un administrateur traitera votre demande sous 30 jours maximum.</p>
+      <?php if(Config::get('delete_request_'.Auth::id())): ?>
+      <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:8px;padding:.75rem;font-size:.875rem;color:#92400e">
+        ⏳ Votre demande est en cours de traitement.
+      </div>
+      <?php else: ?>
+      <form method="post">
+        <?=Auth::csrfField()?>
+        <div style="margin-bottom:.75rem">
+          <label style="font-size:.82rem;font-weight:600;color:#64748b;display:block;margin-bottom:.3rem">Motif (optionnel)</label>
+          <textarea name="delete_reason" rows="2" placeholder="Pourquoi souhaitez-vous supprimer votre compte ?" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:.5rem .75rem;font-family:inherit;font-size:.875rem;resize:vertical"></textarea>
+        </div>
+        <button type="submit" name="request_delete" class="btn" style="background:#dc2626;color:#fff"
+          onclick="return confirm('Confirmer la demande de suppression de votre compte ?')">
+          🗑 Demander la suppression
+        </button>
+      </form>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
+endif; ?>
 <?php
 $content = ob_get_clean();
 include CC_ROOT . '/templates/layout.php';

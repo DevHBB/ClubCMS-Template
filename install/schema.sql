@@ -522,6 +522,38 @@ CREATE TABLE IF NOT EXISTS `cc_videos` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `cc_results_categories` (
+  `id`    int(11) NOT NULL AUTO_INCREMENT,
+  `name`  varchar(200) NOT NULL,
+  `slug`  varchar(200) NOT NULL UNIQUE,
+  `icon`  varchar(10)  DEFAULT '🏆',
+  `order` int(11) DEFAULT 0,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cc_results` (
+  `id`          int(11) NOT NULL AUTO_INCREMENT,
+  `category_id` int(11) NOT NULL,
+  `title`       varchar(200) NOT NULL,
+  `date`        date DEFAULT NULL,
+  `source_type` varchar(20) DEFAULT 'manual' COMMENT 'manual|iframe|gsheet',
+  `iframe_url`  varchar(500) DEFAULT NULL,
+  `content`     text DEFAULT NULL COMMENT 'JSON tableau manuel ou embed URL',
+  `published`   tinyint(1) DEFAULT 1,
+  `created_by`  int(11) NOT NULL,
+  `created_at`  datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cc_page_views` (
+  `id`       int(11) NOT NULL AUTO_INCREMENT,
+  `page`     varchar(200) NOT NULL,
+  `views`    int(11) DEFAULT 1,
+  `date`     date NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_page_date` (`page`,`date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Données initiales ─────────────────────────────────────────
 INSERT IGNORE INTO `cc_modules` (`slug`,`label`,`enabled`,`require_login`) VALUES
   ('forum',    'Forum',    1, 1),

@@ -12,7 +12,8 @@ try { Database::run("ALTER TABLE cc_articles ADD COLUMN IF NOT EXISTS access_mes
 
 // Sauvegarde page d'accueil
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_homepage'])) {
-    $fields = ['hero_title','hero_subtitle','hero_btn1_label','hero_btn1_url','hero_btn2_label','hero_btn2_url'];
+    $fields = ['hero_title','hero_subtitle','hero_btn1_label','hero_btn1_url','hero_btn2_label','hero_btn2_url',
+               'hero_overlay_opacity','hero_animation','hero_gradient','hero_height'];
     foreach ($fields as $f) Config::set($f, Helpers::sanitize($_POST[$f] ?? ''), 'homepage');
     // Stats bar
     Config::set('stats_bar_enabled', isset($_POST['stats_bar_enabled']) ? '1' : '0', 'homepage');

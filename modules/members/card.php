@@ -140,9 +140,8 @@ if ((defined('CARD_DOWNLOAD_MODE') && CARD_DOWNLOAD_MODE) || ($_GET['dl'] ?? '')
     $pdf->SetXY(45, 47);
     $pdf->Cell(35, 5, 'REF: ' . chunk_split($shortHash, 4, '-'), 0, 0, 'R');
 
-    // QR Code (si extension disponible)
-    // Note: nécessite l'ajout de la lib QR ou d'une API
-    // $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=' . urlencode($verifyUrl);
+    // QR Code via qrserver.com (gratuit, pas de lib nécessaire)
+    $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' . urlencode($verifyUrl);
 
     // Vider tout buffer de sortie avant d'envoyer les headers PDF
     while (ob_get_level()) ob_end_clean();
@@ -180,6 +179,9 @@ endif; // fin génération PDF
         <div class="card-licence">Licence exp. <?= Helpers::dateFormat($user['license_expiry']) ?></div>
       <?php endif; ?>
       <div class="card-hash">REF: <?= strtoupper(chunk_split(substr($user['member_card_hash'], -8), 4, '-')) ?></div>
+      <div style="margin-top:.5rem">
+        <img src="<?= $qrUrl ?>" width="70" height="70" alt="QR Code" style="border-radius:6px;border:2px solid rgba(255,255,255,.3)">
+      </div>
     </div>
   </div>
   <div class="card-actions">

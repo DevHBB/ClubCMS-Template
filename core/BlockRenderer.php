@@ -78,6 +78,7 @@ class BlockRenderer {
             'accordion'      => self::p_accordion($b, $wrap),
             'banner_image'   => self::p_banner_image($b, $wrap),
             'partners'       => self::p_partners($b, $wrap),
+            'weather'        => self::p_weather($b, $wrap),
 
             default => '',
         };
@@ -689,6 +690,26 @@ class BlockRenderer {
             $out .= '</div>';
         }
         $out .= '</div>';
+        return $out;
+    }
+
+    private static function p_weather(array $b, string $wrap): string {
+        $city  = htmlspecialchars($b['city'] ?? '');
+        $style = $b['weather_style'] ?? 'compact';
+        if (!$city) return '';
+        $id = 'wttr-'.uniqid();
+        if ($style === 'card') {
+            $out  = '<div '.$wrap.' style="text-align:center;padding:1rem">';
+            $out .= '<div id="'.$id.'" style="display:inline-block;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:1rem 1.5rem;font-size:.95rem;color:#0369a1">';
+            $out .= '<span style="font-size:1.25rem">🌤</span> <strong>'.htmlspecialchars($city).'</strong> : <span id="'.$id.'-data">Chargement…</span>';
+            $out .= '</div></div>';
+        } else {
+            $out  = '<div '.$wrap.' style="padding:.5rem 0">';
+            $out .= '<div id="'.$id.'" style="font-size:.85rem;color:#0369a1;display:flex;align-items:center;gap:.4rem">';
+            $out .= '<span>🌤</span> <strong>'.htmlspecialchars($city).'</strong> : <span id="'.$id.'-data">…</span>';
+            $out .= '</div></div>';
+        }
+        $out .= '<script>fetch("https://wttr.in/'.rawurlencode($city).'?format=%C+%t+%w&lang=fr").then(r=>r.text()).then(t=>document.getElementById("'.$id.'-data").textContent=t.trim()).catch(()=>document.getElementById("'.$id.'").style.display="none");</script>';
         return $out;
     }
 

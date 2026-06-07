@@ -84,13 +84,18 @@ if ($section === 'config') {
         $group = Helpers::sanitize($_POST['group'] ?? 'general');
         $skip  = ['csrf_token','save_config','group'];
         // Checkboxes qui doivent pouvoir être décochées (valeur '0' si absentes du POST)
-        $checkboxes = ['maintenance_mode','translation_enabled','cookie_banner_enabled'];
+        $checkboxes = ['maintenance_mode','translation_enabled','cookie_banner_enabled',
+            'notif_new_member','notif_new_order','notif_new_topic','notif_new_booking'];
         // Champs texte cookies
         foreach(['cookie_text','cookie_link_label','cookie_link_url'] as $ck) {
             if(isset($_POST[$ck])) Config::set($ck, Helpers::sanitize($_POST[$ck]), $group);
         }
         foreach ($checkboxes as $cb) {
             Config::set($cb, isset($_POST[$cb]) ? '1' : '0', $group);
+        }
+        // Champs sociaux
+        foreach(['social_facebook','social_instagram','social_twitter','social_youtube','weather_city'] as $sk) {
+            if(array_key_exists($sk, $_POST)) Config::set($sk, Helpers::sanitize($_POST[$sk] ?? ''), $group);
         }
         foreach($_POST as $k => $v) {
             if (in_array($k,$skip) || str_starts_with($k,'_')) continue;
@@ -128,11 +133,35 @@ if ($section === 'config') {
       </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="maintenance_mode" value="1" <?=Config::get('maintenance_mode')?'checked':''?>> Mode maintenance (seuls les super admins accèdent au site)</label></div>
       <div class="fg">
+        <label>🌤 Ville pour le widget météo (accueil)</label>
+        <input type="text" name="weather_city" class="input-std" value="<?=Helpers::e(Config::get('weather_city',''))?>" placeholder="Ex: Paris, Lyon, Marseille…">
+        <small style="color:#64748b;font-size:.78rem">Laissez vide pour ne pas afficher. Utilise wttr.in (gratuit, sans clé API, RGPD friendly).</small>
+      </div>
+      <div style="border-top:1px solid #f1f5f9;margin:.75rem 0;padding-top:.75rem">
+        <div style="font-weight:600;font-size:.82rem;color:#475569;margin-bottom:.625rem">📱 Réseaux sociaux (footer)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+          <div class="fg"><label>Facebook</label><input type="url" name="social_facebook" class="input-std" value="<?=Helpers::e(Config::get('social_facebook',''))?>" placeholder="https://facebook.com/..."></div>
+          <div class="fg"><label>Instagram</label><input type="url" name="social_instagram" class="input-std" value="<?=Helpers::e(Config::get('social_instagram',''))?>" placeholder="https://instagram.com/..."></div>
+          <div class="fg"><label>X / Twitter</label><input type="url" name="social_twitter" class="input-std" value="<?=Helpers::e(Config::get('social_twitter',''))?>" placeholder="https://twitter.com/..."></div>
+          <div class="fg"><label>YouTube</label><input type="url" name="social_youtube" class="input-std" value="<?=Helpers::e(Config::get('social_youtube',''))?>" placeholder="https://youtube.com/..."></div>
+        </div>
+      </div>
+      <div class="fg">
         <label>Mention pied de page</label>
-        <input type="text" name="footer_mention" class="input-std" value="<?=Helpers::e(Config::get('footer_mention',''))?>" placeholder="© 2025 Mon Club — Tous droits réservés">
+        <input type="url" name="footer_mention" class="input-std" value="<?=Helpers::e(Config::get('footer_mention',''))?>" placeholder="© 2025 Mon Club — Tous droits réservés">
         <small style="color:#64748b;font-size:.78rem">Laissez vide pour le texte automatique. Exemples : "© 2025 MonClub — Site propulsé par Valentin" ou "Tous droits réservés — MonClub"</small>
       </div>
       <div class="fg"><label style="display:flex;align-items:center;gap:.5rem;text-transform:none"><input type="checkbox" name="translation_enabled" value="1" <?=Config::get('translation_enabled')?'checked':''?>> Activer le bouton de traduction sur le site (Google Translate, gratuit)</label></div>
+      <!-- Notifications admin -->
+      <div style="border-top:1px solid #f1f5f9;margin:.75rem 0;padding-top:.75rem">
+        <div style="font-weight:600;font-size:.82rem;color:#475569;margin-bottom:.625rem">🔔 Notifications email admin</div>
+        <div style="display:flex;flex-direction:column;gap:.4rem">
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer"><input type="checkbox" name="notif_new_member" value="1" <?=Config::get('notif_new_member')?'checked':''?>> Nouvelle inscription membre</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer"><input type="checkbox" name="notif_new_order" value="1" <?=Config::get('notif_new_order')?'checked':''?>> Nouvelle commande boutique</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer"><input type="checkbox" name="notif_new_topic" value="1" <?=Config::get('notif_new_topic')?'checked':''?>> Nouveau sujet forum</label>
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer"><input type="checkbox" name="notif_new_booking" value="1" <?=Config::get('notif_new_booking')?'checked':''?>> Nouvelle inscription planning</label>
+        </div>
+      </div>
       <!-- Cookies -->
       <div style="border-top:1px solid #f1f5f9;margin:.75rem 0;padding-top:.75rem">
         <div style="font-weight:600;font-size:.82rem;color:#475569;margin-bottom:.625rem">🍪 Bandeau cookies</div>

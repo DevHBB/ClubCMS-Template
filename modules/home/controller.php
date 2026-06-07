@@ -165,6 +165,8 @@ if($statsEnabled):
 </div>
 <?php endif; ?>
 
+
+
 <?php
 $content = ob_get_clean();
 include CC_ROOT . '/templates/layout.php';

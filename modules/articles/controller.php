@@ -105,6 +105,37 @@ ob_start();?>
   <?php endif; ?>
 
 </div>
+
+    <!-- Partage réseaux sociaux -->
+    <?php if(isset($article)): ?>
+    <?php
+    $shareUrl   = CC_URL.u('/actualites/'.$article['slug']);
+    $shareTitle = urlencode($article['title']);
+    $shareUrl_e = urlencode($shareUrl);
+    ?>
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:1.25rem 0;border-top:1px solid #f1f5f9;margin-top:1.5rem">
+      <span style="font-size:.82rem;font-weight:600;color:#64748b">Partager :</span>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=<?=$shareUrl_e?>" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:8px;background:#1877f2;color:#fff;text-decoration:none;font-size:.82rem;font-weight:600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z"/></svg>
+        Facebook
+      </a>
+      <a href="https://twitter.com/intent/tweet?url=<?=$shareUrl_e?>&text=<?=$shareTitle?>" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:8px;background:#000;color:#fff;text-decoration:none;font-size:.82rem;font-weight:600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.259 5.631L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        X / Twitter
+      </a>
+      <a href="whatsapp://send?text=<?=$shareTitle?>%20<?=$shareUrl_e?>" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:8px;background:#25d366;color:#fff;text-decoration:none;font-size:.82rem;font-weight:600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z M11.99 2C6.477 2 2 6.477 2 11.99c0 1.76.459 3.417 1.255 4.857L2 22l5.244-1.231A9.955 9.955 0 0011.99 22C17.522 22 22 17.523 22 11.99S17.522 2 11.99 2z"/></svg>
+        WhatsApp
+      </a>
+      <button onclick="navigator.clipboard.writeText('<?=Helpers::e($shareUrl)?>').then(()=>this.textContent='✓ Copié !')"
+        style="display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:8px;background:#f1f5f9;color:#475569;border:none;cursor:pointer;font-size:.82rem;font-weight:600;font-family:inherit">
+        🔗 Copier le lien
+      </button>
+    </div>
+    <?php endif; ?>
 <?php
 $content = ob_get_clean();
 include CC_ROOT . '/templates/layout.php';

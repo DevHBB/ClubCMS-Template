@@ -57,6 +57,68 @@ ob_start();
     </table>
   </div>
 </div>
+
+<?php
+try {
+    Database::run("CREATE TABLE IF NOT EXISTS cc_page_views (id INT AUTO_INCREMENT PRIMARY KEY, page VARCHAR(200) NOT NULL, views INT DEFAULT 1, date DATE NOT NULL, UNIQUE KEY uq_pd (page,date))");
+    $pvToday  = (int)Database::scalar("SELECT SUM(views) FROM cc_page_views WHERE date=CURDATE()");
+    $pvWeek   = (int)Database::scalar("SELECT SUM(views) FROM cc_page_views WHERE date>=DATE_SUB(CURDATE(),INTERVAL 7 DAY)");
+    $pvMonth  = (int)Database::scalar("SELECT SUM(views) FROM cc_page_views WHERE date>=DATE_SUB(CURDATE(),INTERVAL 30 DAY)");
+    $pvPages  = Database::all("SELECT page, SUM(views) as total FROM cc_page_views WHERE date>=DATE_SUB(CURDATE(),INTERVAL 30 DAY) GROUP BY page ORDER BY total DESC LIMIT 8");
+    $pvDays   = Database::all("SELECT date, SUM(views) as total FROM cc_page_views WHERE date>=DATE_SUB(CURDATE(),INTERVAL 14 DAY) GROUP BY date ORDER BY date ASC");
+    $hasStats = true;
+} catch(Exception $e) { $hasStats=false; }
+?>
+<?php if($hasStats): ?>
+<div class="ac" style="margin-top:1.5rem">
+  <div class="ac-header"><h2>📈 Statistiques de visites <small style="font-weight:400;color:#94a3b8;font-size:.78rem">(RGPD — aucun cookie, aucune donnée personnelle)</small></h2></div>
+  <div class="ac-body">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem">
+      <?php foreach([["Aujourd'hui",$pvToday,'📅'],["7 derniers jours",$pvWeek,'📆'],["30 derniers jours",$pvMonth,'🗓']] as [$l,$v,$ic]): ?>
+      <div style="background:#f8fafc;border-radius:10px;padding:1rem;text-align:center">
+        <div style="font-size:1.5rem"><?=$ic?></div>
+        <div style="font-size:1.75rem;font-weight:800;color:var(--color-primary)"><?=number_format($v,0,',',' ')?></div>
+        <div style="font-size:.78rem;color:#64748b"><?=$l?></div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+      <!-- Pages populaires -->
+      <div>
+        <div style="font-weight:700;font-size:.875rem;margin-bottom:.75rem;color:#475569">Pages populaires (30j)</div>
+        <?php foreach($pvPages as $pv): $pct=$pvMonth>0?round($pv['total']/$pvMonth*100):0; ?>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+          <div style="font-size:.8rem;color:#374151;width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?=Helpers::e($pv['page'])?></div>
+          <div style="flex:1;background:#f1f5f9;border-radius:99px;height:8px"><div style="width:<?=$pct?>%;background:var(--color-primary);border-radius:99px;height:8px;min-width:4px"></div></div>
+          <div style="font-size:.78rem;color:#64748b;width:36px;text-align:right"><?=$pv['total']?></div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+      <!-- Graphique 14 jours -->
+      <div>
+        <div style="font-weight:700;font-size:.875rem;margin-bottom:.75rem;color:#475569">Visites — 14 derniers jours</div>
+        <?php if(!empty($pvDays)):
+          $maxV = max(array_column($pvDays,'total'));
+        ?>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:80px">
+          <?php foreach($pvDays as $d):
+            $h = $maxV>0 ? max(4, round($d['total']/$maxV*80)) : 4;
+          ?>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <div title="<?=(new DateTime($d['date']))->format('d/m').' : '.$d['total']?> vues"
+              style="width:100%;height:<?=$h?>px;background:var(--color-primary);border-radius:3px 3px 0 0;opacity:.8;cursor:default;transition:opacity .2s"
+              onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.8"></div>
+            <div style="font-size:.6rem;color:#94a3b8"><?=(new DateTime($d['date']))->format('d/m')?></div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php
 $content = ob_get_clean();
 include CC_ROOT . '/admin/layout.php';

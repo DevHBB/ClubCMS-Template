@@ -117,6 +117,7 @@
     <?php if(Auth::isAdmin()): ?>
     <a href="<?=u('/admin/forum')?>"    class="admin-nav-item <?=$section==='forum'?'active':''?>">💬 Forum</a>
     <a href="<?=u('/admin/shop')?>"     class="admin-nav-item <?=$section==='shop'?'active':''?>">🛒 Boutique</a>
+    <a href="<?=u('/admin/results')?>"  class="admin-nav-item <?=$section==='results'?'active':''?>">🏆 Résultats</a>
     <a href="<?=u('/admin/videos')?>"   class="admin-nav-item <?=$section==='videos'?'active':''?>">🎬 Vidéos</a>
     <a href="<?=u('/admin/gallery')?>"  class="admin-nav-item <?=$section==='gallery'?'active':''?>">📸 Galerie</a>
     <div class="admin-nav-group">Communication</div>

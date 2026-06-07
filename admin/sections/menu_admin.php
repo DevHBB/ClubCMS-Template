@@ -84,6 +84,7 @@ $suggestions = [
     ['🛒', 'Boutique',    '/boutique'],
     ['📸', 'Galerie',     '/galerie'],
     ['🎬', 'Vidéos',      '/videos'],
+    ['🏆', 'Résultats',  '/resultats'],
     ['📅', 'Planning',    '/planning'],
     ['👤', 'Mon compte',  '/membre'],
     ['📝', 'Inscription', '/register'],

@@ -755,6 +755,19 @@ $b = $block; // alias court
     <label class="be-label">Hauteur de l'intégration</label>
     <input type="number" name="<?=$p?>[height]" class="be-input" value="<?=Helpers::e($b['height']??'400')?>" min="100" max="1200" style="max-width:100px"> px
   </div>
+<?php elseif($type==='weather'): ?>
+  <div class="be-field">
+    <label class="be-label">🌤 Ville</label>
+    <input type="text" name="<?=$p?>[city]" class="be-input" value="<?=Helpers::e($b['city']??'')?>" placeholder="Ex: Paris, Lyon, Marseille…">
+    <small style="color:#64748b;font-size:.75rem">La météo est récupérée via wttr.in (gratuit, RGPD friendly, pas de clé API)</small>
+  </div>
+  <div class="be-field">
+    <label class="be-label">Style d'affichage</label>
+    <select name="<?=$p?>[weather_style]" class="be-input">
+      <option value="compact" <?=($b['weather_style']??'compact')==='compact'?'selected':''?>>Compact (une ligne)</option>
+      <option value="card" <?=($b['weather_style']??'')==='card'?'selected':''?>>Carte météo</option>
+    </select>
+  </div>
 <?php else: ?>
   <div class="be-field">
     <label class="be-label">Contenu</label>

@@ -24,6 +24,17 @@ try {
 }
 
 Auth::startSession();
+// ── Tracking RGPD-friendly (pas de cookie, pas d'IP stockée) ──
+if (!isset($_GET['route']) || !str_starts_with($_GET['route']??'', 'admin')) {
+    try {
+        $trackPage = '/'.($module ?? 'home');
+        Database::run(
+            "INSERT INTO cc_page_views (page,views,date) VALUES (?,1,CURDATE())
+             ON DUPLICATE KEY UPDATE views=views+1",
+            [$trackPage]
+        );
+    } catch(Exception $e) {}
+}
 
 // ── Basepath (sous-dossier XAMPP ou racine) ───────────────────
 $BASE = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
@@ -96,6 +107,8 @@ switch ($module) {
     case 'gallery':            moduleEnabled('gallery'); include CC_ROOT.'/modules/gallery/controller.php'; break;
     case 'videos':
     case 'video':              include CC_ROOT.'/modules/videos/controller.php'; break;
+    case 'resultats':
+    case 'results':            include CC_ROOT.'/modules/results/controller.php'; break;
     case 'planning':
     case 'agenda':             moduleEnabled('planning');include CC_ROOT.'/modules/planning/controller.php'; break;
     case 'benevole':           include CC_ROOT.'/modules/benevole/controller.php'; break;

@@ -1348,12 +1348,12 @@ elseif($action==='documents'):
         <!-- Prévisualisation -->
         <?php if($isImg): ?>
         <div style="background:#f8fafc;padding:.5rem;text-align:center;border-bottom:1px solid #f1f5f9">
-          <img src="<?=u('/uploads/benevoles/'.$doc['filename'])?>" alt="<?=Helpers::e($doc['title'])?>"
+          <img src="<?=asset('/uploads/benevoles/'.$doc['filename'])?>" alt="<?=Helpers::e($doc['title'])?>"
             style="max-height:180px;max-width:100%;border-radius:6px;object-fit:contain">
         </div>
         <?php elseif($isPdf): ?>
         <div style="background:#f8fafc;padding:.5rem;border-bottom:1px solid #f1f5f9">
-          <iframe src="<?=u('/uploads/benevoles/'.$doc['filename'])?>" style="width:100%;height:200px;border:none;border-radius:6px"></iframe>
+          <iframe src="<?=asset('/uploads/benevoles/'.$doc['filename'])?>" style="width:100%;height:200px;border:none;border-radius:6px"></iframe>
         </div>
         <?php endif; ?>
         <!-- Infos + actions -->
