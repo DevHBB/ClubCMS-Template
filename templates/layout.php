@@ -102,7 +102,9 @@ $gf = urlencode($fh).':wght@400;700&family='.urlencode($fb).':wght@400;500;600;7
 .btn-nav-register{display:inline-flex;align-items:center;padding:.4rem .875rem;border-radius:8px;background:var(--color-primary);color:#fff;font-size:.875rem;font-weight:600;text-decoration:none;transition:all .15s;border:1.5px solid var(--color-primary)}
 .btn-nav-register:hover{background:var(--color-primary-dark,#4f46e5)}
 </style>
-<body class="<?= Auth::check() ? 'is-logged-in role-'.Auth::role() : 'is-guest' ?>">
+<body class="<?= Auth::check() ? 'is-logged-in role-'.Auth::role() : 'is-guest' ?>
+<div id="toast-wrap"></div>
+">
 <a href="<?= u('/') ?>#main-content" class="skip-nav">Aller au contenu</a>
 
 <!-- ── NAVBAR ── -->
@@ -184,6 +186,7 @@ $gf = urlencode($fh).':wght@400;700&family='.urlencode($fb).':wght@400;500;600;7
     </ul>
 
     <div class="nav-actions">
+
       <?php if (Auth::check() && ($u = Auth::user())): ?>
         <div class="nav-user-menu" id="user-menu">
           <button class="nav-avatar-btn" onclick="toggleUserMenu()">
@@ -534,5 +537,189 @@ function cookieAccept(){
 }
 </script>
 <?php endif; ?>
+<?php
+// ── Mini panneau panier ──────────────────────────────────────
+$_cp_items = [];
+$_cp_total = 0;
+$_cp_count = 0;
+foreach ($_SESSION['cart'] ?? [] as $_cp_k => $_cp_v) {
+    $_cp_items[] = array_merge((array)$_cp_v, ['key' => $_cp_k]);
+    $_cp_total  += $_cp_v['price'] * $_cp_v['qty'];
+    $_cp_count  += $_cp_v['qty'];
+}
+$_cp_json  = json_encode($_cp_items, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_QUOT);
+$_cp_base  = rtrim(($_SERVER['SCRIPT_NAME'] !== '' ? dirname($_SERVER['SCRIPT_NAME']) : ''), '/');
+if ($_cp_base === '/') $_cp_base = '';
+$_cp_url_p = u('/boutique/panier');
+$_cp_url_c = u('/boutique/commande');
+$_cp_csrf  = Auth::getCsrfToken();
+?>
+
+<style>
+#cp{position:fixed;bottom:0;right:0;width:min(460px,100vw);z-index:9000;transform:translateY(110%);transition:transform .32s cubic-bezier(.4,0,.2,1)}
+#cp.cp-open{transform:translateY(0)}
+#cp-inner{background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -6px 40px rgba(0,0,0,.16);display:flex;flex-direction:column;max-height:82vh;font-family:inherit}
+#cp-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9;flex-shrink:0}
+#cp-head h3{margin:0;font-size:1rem;font-weight:700;color:#0f172a}
+#cp-nbr{font-size:.75rem;color:#94a3b8;margin-left:.4rem;font-weight:400}
+#cp-close{background:none;border:none;cursor:pointer;width:28px;height:28px;border-radius:6px;font-size:.95rem;color:#64748b;display:flex;align-items:center;justify-content:center;transition:background .15s}
+#cp-close:hover{background:#f1f5f9}
+#cp-list{flex:1;overflow-y:auto}
+#cp-empty{text-align:center;padding:2.5rem 1rem;color:#94a3b8;display:none}
+.cp-row{display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem;border-bottom:1px solid #f8fafc}
+.cp-row:last-child{border-bottom:none}
+.cp-img{width:50px;height:50px;border-radius:8px;object-fit:cover;background:#f1f5f9;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.cp-img img{width:50px;height:50px;object-fit:cover;border-radius:8px;display:block}
+.cp-info{flex:1;min-width:0}
+.cp-nm{font-size:.875rem;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cp-vr{font-size:.7rem;color:#94a3b8;margin-top:.1rem}
+.cp-pr{font-size:.75rem;color:#64748b;margin-top:.15rem}
+.cp-side{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex-shrink:0}
+.cp-sb{font-size:.85rem;font-weight:700;color:#0f172a}
+.cp-qc{display:flex;align-items:center;gap:.2rem}
+.cp-qc button{width:22px;height:22px;border:1.5px solid #e2e8f0;border-radius:5px;background:#fff;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center;padding:0;color:#475569;transition:border-color .12s,color .12s;line-height:1}
+.cp-qc button:hover{border-color:var(--color-primary,#1d4ed8);color:var(--color-primary,#1d4ed8)}
+.cp-qc span{font-size:.8rem;font-weight:600;min-width:20px;text-align:center}
+.cp-rm{background:none;border:none;cursor:pointer;color:#e2e8f0;font-size:.85rem;padding:.1rem;line-height:1;transition:color .12s}
+.cp-rm:hover{color:#ef4444}
+#cp-foot{padding:.875rem 1.25rem;border-top:2px solid #f1f5f9;flex-shrink:0;display:none}
+#cp-tot{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
+#cp-tot span{font-size:.875rem;color:#64748b}
+#cp-tot strong{font-size:1.1rem;font-weight:800;color:#0f172a}
+#cp-go{display:block;text-align:center;padding:.8rem 1rem;background:var(--color-primary,#1d4ed8);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:.95rem;transition:opacity .15s}
+#cp-go:hover{opacity:.88}
+#cp-bub{position:fixed;bottom:20px;right:20px;z-index:8999;background:var(--color-primary,#1d4ed8);color:#fff;border:none;border-radius:99px;padding:.6rem 1.1rem .6rem .9rem;font-size:.88rem;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.22);display:none;align-items:center;gap:.45rem;transition:transform .15s,box-shadow .15s;font-family:inherit}
+#cp-bub:hover{transform:translateY(-2px);box-shadow:0 7px 22px rgba(0,0,0,.28)}
+#cp-bub.on{display:flex}
+#cp-bub-n{background:#ef4444;border-radius:99px;font-size:.65rem;padding:.1rem .38rem;font-weight:800;min-width:16px;text-align:center}
+</style>
+
+<div id="cp"><div id="cp-inner">
+  <div id="cp-head">
+    <h3>🛒 Panier <span id="cp-nbr"></span></h3>
+    <button id="cp-close" onclick="cpClose()">✕</button>
+  </div>
+  <div id="cp-list">
+    <div id="cp-empty">Votre panier est vide</div>
+  </div>
+  <div id="cp-foot">
+    <div id="cp-tot"><span>Total</span><strong id="cp-tv"></strong></div>
+    <a id="cp-go" href="<?=u('/boutique/commande')?>">Finaliser la commande →</a>
+  </div>
+</div></div>
+
+<button id="cp-bub" onclick="cpOpen()">🛒 Panier <span id="cp-bub-n">0</span></button>
+
+<?php
+$_cpI = [];
+foreach ((array)($_SESSION['cart'] ?? []) as $_cpK => $_cpV) {
+    $_cpI[] = ['key'=>(string)$_cpK, 'name'=>(string)($_cpV['name']??''), 'price'=>(float)($_cpV['price']??0), 'qty'=>(int)($_cpV['qty']??1), 'image'=>(string)($_cpV['image']??''), 'variant'=>(string)($_cpV['variant']??'')];
+}
+$_cpJ = json_encode($_cpI, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_QUOT|JSON_HEX_APOS);
+$_cpB = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+if ($_cpB === '.') $_cpB = '';
+$_cpU = u('/boutique/panier');
+$_cpC = Auth::getCsrfToken();
+?>
+<script>
+var _cp = {
+  el:    document.getElementById('cp'),
+  list:  document.getElementById('cp-list'),
+  empty: document.getElementById('cp-empty'),
+  foot:  document.getElementById('cp-foot'),
+  nbr:   document.getElementById('cp-nbr'),
+  tv:    document.getElementById('cp-tv'),
+  bub:   document.getElementById('cp-bub'),
+  bubn:  document.getElementById('cp-bub-n'),
+  items: (function(){ try { return <?=$_cpJ?> || []; } catch(e){ return []; } })(),
+  url:   '<?=$_cpU?>',
+  csrf:  '<?=$_cpC?>',
+  base:  '<?=$_cpB?>',
+  pr: function(n){ return parseFloat(n).toFixed(2).replace('.',',')+'\u00a0\u20ac'; },
+  es: function(s){ var d=document.createElement('div');d.textContent=String(s);return d.innerHTML; }
+};
+
+function cpRender(){
+  var rows = _cp.list.querySelectorAll('.cp-row');
+  rows.forEach(function(r){r.remove();});
+  var sum=0, nb=0;
+  _cp.items.forEach(function(it){
+    nb+=it.qty; sum+=it.price*it.qty;
+    var th = it.image
+      ? '<div class="cp-img"><img src="'+_cp.base+'/'+it.image.replace(/^\/+/,'')+'"></div>'
+      : '<div class="cp-img">🏷️</div>';
+    var div=document.createElement('div');
+    div.className='cp-row';
+    div.innerHTML=th
+      +'<div class="cp-info"><div class="cp-nm">'+_cp.es(it.name)+'</div>'
+      +(it.variant?'<div class="cp-vr">'+_cp.es(it.variant)+'</div>':'')
+      +'<div class="cp-pr">'+_cp.pr(it.price)+'</div></div>'
+      +'<div class="cp-side"><span class="cp-sb">'+_cp.pr(it.price*it.qty)+'</span>'
+      +'<div class="cp-qc">'
+      +'<button onclick="cpQty(\''+it.key+'\','+(it.qty-1)+')">−</button>'
+      +'<span>'+it.qty+'</span>'
+      +'<button onclick="cpQty(\''+it.key+'\','+(it.qty+1)+')">+</button>'
+      +'</div>'
+      +'<button class="cp-rm" onclick="cpQty(\''+it.key+'\',0)">✕</button>'
+      +'</div>';
+    _cp.list.appendChild(div);
+  });
+  var has=_cp.items.length>0;
+  _cp.empty.style.display=has?'none':'block';
+  _cp.foot.style.display=has?'block':'none';
+  _cp.nbr.textContent=has?'('+nb+')':'';
+  if(_cp.tv) _cp.tv.textContent=_cp.pr(sum);
+  if(_cp.bubn) _cp.bubn.textContent=nb;
+}
+
+function cpOpen(){
+  cpRender();
+  _cp.el.classList.add('cp-open');
+  if(_cp.bub) _cp.bub.classList.remove('on');
+  try{ localStorage.setItem('cp_open','1'); }catch(e){}
+}
+function cpClose(){
+  _cp.el.classList.remove('cp-open');
+  try{ localStorage.setItem('cp_open','0'); }catch(e){}
+  if(_cp.items.length>0 && _cp.bub) _cp.bub.classList.add('on');
+}
+function cpQty(key,qty){
+  var fd=new FormData();
+  fd.append('_action','update'); fd.append('key',key); fd.append('qty',qty); fd.append('csrf_token',_cp.csrf);
+  fetch(_cp.url,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(){
+    if(qty<=0){ _cp.items=_cp.items.filter(function(i){return i.key!==key;}); }
+    else { _cp.items=_cp.items.map(function(i){return i.key===key?Object.assign({},i,{qty:qty}):i;}); }
+    cpRender();
+    if(_cp.items.length===0) cpClose();
+  });
+}
+function cpAdd(newItems){
+  if(typeof _cp === 'undefined' || !_cp) return;
+  if(newItems) _cp.items=newItems;
+  cpOpen();
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')cpClose();});
+
+// Toast système
+window.Toast = window.Toast || {
+  show: function(msg, type) {
+    var wrap = document.getElementById('toast-wrap');
+    if (!wrap) return;
+    var t = document.createElement('div');
+    t.className = 'toast t-' + (type||'success');
+    t.textContent = msg;
+    wrap.appendChild(t);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ t.classList.add('t-in'); }); });
+    setTimeout(function(){ t.classList.remove('t-in'); setTimeout(function(){ t.remove(); }, 300); }, 3000);
+  }
+};
+
+// Init au chargement
+(function(){
+  if(_cp.items.length === 0) return;
+  cpRender();
+  if(_cp.bub) _cp.bub.classList.add('on');
+})();
+</script>
 </body>
 </html>

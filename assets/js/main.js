@@ -11,7 +11,7 @@ const Toast = {
   init() {
     this.container = document.createElement('div');
     this.container.id = 'toast-container';
-    this.container.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none';
+    this.container.style.cssText = 'position:fixed;top:1.25rem;left:1.25rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none';
     document.body.appendChild(this.container);
   },
   show(message, type = 'info', duration = 4000) {

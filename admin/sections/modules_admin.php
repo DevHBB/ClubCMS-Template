@@ -85,7 +85,11 @@ if ($section === 'config') {
         $skip  = ['csrf_token','save_config','group'];
         // Checkboxes qui doivent pouvoir être décochées (valeur '0' si absentes du POST)
         $checkboxes = ['maintenance_mode','translation_enabled','cookie_banner_enabled',
-            'notif_new_member','notif_new_order','notif_new_topic','notif_new_booking'];
+            'notif_new_member','notif_new_order','notif_new_topic','notif_new_booking',
+            'shop_invoice_auto','shop_wallet_pay'];
+        foreach(['shop_tva_rate','shop_price_mode','shop_siret','shop_invoice_prefix','sumup_api_key','sumup_merchant'] as $sf){
+            if(isset($_POST[$sf])) Config::set($sf, Helpers::sanitize($_POST[$sf]??''), 'shop');
+        }
         // Champs texte cookies
         foreach(['cookie_text','cookie_link_label','cookie_link_url'] as $ck) {
             if(isset($_POST[$ck])) Config::set($ck, Helpers::sanitize($_POST[$ck]), $group);

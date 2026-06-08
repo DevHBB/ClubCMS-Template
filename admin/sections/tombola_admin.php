@@ -16,6 +16,9 @@ try { Database::run("ALTER TABLE cc_tombola ADD COLUMN IF NOT EXISTS close_at DA
 try { Database::run("ALTER TABLE cc_tombola ADD COLUMN IF NOT EXISTS msg_waiting VARCHAR(500) DEFAULT 'Le tirage au sort aura lieu prochainement !'"); } catch(Exception $e) {}
 try { Database::run("CREATE TABLE IF NOT EXISTS cc_tombola_participants (id INT AUTO_INCREMENT PRIMARY KEY, tombola_id INT NOT NULL, user_id INT DEFAULT NULL, name VARCHAR(200) NOT NULL, email VARCHAR(200) DEFAULT NULL, tickets INT DEFAULT 1, order_id INT DEFAULT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)"); } catch(Exception $e) {}
 try { Database::run("ALTER TABLE cc_tombola_participants ADD COLUMN IF NOT EXISTS order_id INT DEFAULT NULL"); } catch(Exception $e) {}
+try { Database::run("ALTER TABLE cc_tombola_participants ADD COLUMN IF NOT EXISTS extra_data JSON DEFAULT NULL"); } catch(Exception $e) {}
+try { Database::run("ALTER TABLE cc_tombola ADD COLUMN IF NOT EXISTS participation ENUM('all','members') DEFAULT 'all'"); } catch(Exception $e) {}
+try { Database::run("ALTER TABLE cc_tombola_participants ADD COLUMN IF NOT EXISTS extra_data JSON DEFAULT NULL"); } catch(Exception $e) {}
 try { Database::run("ALTER TABLE cc_tombola ADD COLUMN IF NOT EXISTS participation ENUM('all','members','benevole','coach','admin') DEFAULT 'all'"); } catch(Exception $e) {}
 
 $tab    = $_GET['tab'] ?? 'list';
@@ -293,18 +296,37 @@ ob_start();
       </div>
       <script>
       function addGfRow(){
-        var row=document.createElement('div');
-        row.className='gf-row';
-        row.style='display:flex;align-items:center;gap:.5rem';
-        row.innerHTML='<input type="text" name="gf_label[]" class="bi" placeholder="Ex: Téléphone" style="flex:1">'
-          +'<label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap;cursor:pointer"><input type="checkbox" name="gf_required[]" value="1"> Obligatoire</label>'
-          +'<button type="button" onclick="this.closest('.gf-row').remove()" style="background:#fee2e2;border:none;border-radius:6px;color:#dc2626;cursor:pointer;padding:.3rem .5rem">✕</button>';
-        document.getElementById('gf-list').appendChild(row);
+        var list = document.getElementById('gf-list');
+        var row  = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:.5rem';
+
+        var inp = document.createElement('input');
+        inp.type = 'text'; inp.name = 'gf_label[]'; inp.className = 'bi';
+        inp.placeholder = 'Ex: Téléphone'; inp.style.flex = '1';
+
+        var lbl = document.createElement('label');
+        lbl.style.cssText = 'display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap;cursor:pointer';
+        var chk = document.createElement('input');
+        chk.type = 'checkbox'; chk.name = 'gf_required[]'; chk.value = '1';
+        lbl.appendChild(chk);
+        lbl.appendChild(document.createTextNode(' Obligatoire'));
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.textContent = '✕';
+        del.style.cssText = 'background:#fee2e2;border:none;border-radius:6px;color:#dc2626;cursor:pointer;padding:.3rem .5rem';
+        del.onclick = function(){ row.remove(); };
+
+        row.appendChild(inp); row.appendChild(lbl); row.appendChild(del);
+        list.appendChild(row);
+        inp.focus();
       }
-      // Masquer/afficher selon participation
-      document.querySelectorAll('select[name="participation"]').forEach(function(s){
-        s.addEventListener('change',function(){
-          document.getElementById('guest-fields-section').style.display=this.value==='members'?'none':'';
+      document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('select[name="participation"]').forEach(function(s){
+          s.addEventListener('change', function(){
+            var sec = document.getElementById('guest-fields-section');
+            if (sec) sec.style.display = this.value === 'members' ? 'none' : '';
+          });
         });
       });
       </script>
@@ -339,7 +361,12 @@ $existingUids= array_column($participants,'user_id');
       <?php foreach($participants as $p): ?>
       <tr>
         <td><strong><?=Helpers::e($p['name'])?></strong><?php if($p['user_id']): ?><span style="font-size:.7rem;color:#6366f1;margin-left:.35rem">membre</span><?php endif; ?></td>
-        <td style="font-size:.78rem;color:#64748b"><?=Helpers::e($p['email']??'')?></td>
+        <td style="font-size:.78rem;color:#64748b">
+          <?=Helpers::e($p['email']??'')?>
+          <?php if(!empty($p['extra_data'])): $ex=json_decode($p['extra_data'],true)??[]; foreach($ex as $k=>$v): ?>
+          <div style="font-size:.7rem;color:#94a3b8"><?=Helpers::e($k)?>: <?=Helpers::e($v)?></div>
+          <?php endforeach; endif; ?>
+        </td>
         <td>
           <form method="post" style="display:flex;align-items:center;gap:.25rem;margin:0">
             <?=Auth::csrfField()?>
@@ -350,7 +377,12 @@ $existingUids= array_column($participants,'user_id');
             <button type="submit" name="update_tickets" class="btn btn-ghost btn-sm">✓</button>
           </form>
         </td>
-        <td style="font-size:.75rem;color:#64748b"><?=$p['order_id']?'Boutique #'.$p['order_id']:'Manuel'?></td>
+        <td style="font-size:.75rem;color:#64748b">
+  <?=$p['order_id']?'Boutique #'.$p['order_id']:($p['user_id']?'Membre':'Visiteur')?>
+  <?php if(!empty($p['extra_data'])): $ex=json_decode($p['extra_data'],true); ?>
+  <div style="color:#94a3b8;font-size:.7rem"><?=Helpers::e(implode(' · ', array_map(fn($k,$v)=>"$k: $v", array_keys($ex), array_values($ex))))?></div>
+  <?php endif; ?>
+</td>
         <td>
           <form method="post" style="margin:0" onsubmit="return confirm('Retirer ce participant ?')">
             <?=Auth::csrfField()?>

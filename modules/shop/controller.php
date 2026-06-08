@@ -3,6 +3,8 @@
  * ClubCMS — Module Boutique
  * Routes : /boutique, /boutique/produit/{slug}, /boutique/panier, /boutique/commande, /boutique/confirmation
  */
+if (!class_exists('ActivityLog')) require_once dirname(__DIR__,2) . '/core/ActivityLog.php';
+if (!class_exists('Invoice'))     require_once dirname(__DIR__,2) . '/core/Invoice.php';
 
 $action = $segments[1] ?? 'index';
 $param  = $segments[2] ?? null;
@@ -35,7 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'panier' && ($_POST['_a
         ];
     }
     $cartCount = array_sum(array_column($_SESSION['cart'], 'qty'));
-    Helpers::json(['success' => true, 'cart_count' => $cartCount, 'message' => 'Ajouté au panier !']);
+    Helpers::json([
+        'success'    => true,
+        'cart_count' => $cartCount,
+        'message'    => 'Ajouté au panier !',
+        'item'       => array_merge($_SESSION['cart'][$key], ['key' => $key]),
+        'cart'       => array_map(fn($k,$v)=>array_merge($v,['key'=>$k]), array_keys($_SESSION['cart']), array_values($_SESSION['cart'])),
+    ]);
 }
 
 // Modifier/supprimer du panier (AJAX)
@@ -52,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'panier' && ($_POST['_a
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'commande') {
     Auth::require('member');
     if (!Auth::verifyCsrf()) Helpers::json(['error' => 'CSRF'], 403);
-    if (empty($_SESSION['cart'])) Helpers::redirect('/boutique/panier');
+    if (empty($_SESSION['cart'])) Helpers::redirect(u('/boutique/panier'));
 
     $cart   = $_SESSION['cart'];
     $total  = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $cart));
@@ -120,13 +128,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'commande') {
         }
     }
 
-    // Email confirmation
-    Mailer::sendOrderConfirmation(['id' => $orderId, 'total' => $total], $user['email'], $user['firstname']);
+    // Générer la facture (pour toutes les commandes)
+    $invId     = null;
+    $invNumber = null;
+    $pdfData   = null;
+    try {
+        $invId = Invoice::createForOrder($orderId);
+        if ($invId) {
+            $invRow    = Database::one("SELECT invoice_number FROM cc_invoices WHERE id=?", [$invId]);
+            $invNumber = $invRow['invoice_number'] ?? null;
+            // Générer le PDF en mémoire
+            $pdfData = Invoice::generatePdfString($invId);
+        }
+    } catch(Exception $e) {
+        error_log('Invoice error: ' . $e->getMessage());
+    }
+
+    // Email confirmation + facture en pièce jointe
+    try {
+        $club  = Config::get('club_name', 'Mon Club');
+        $invoiceNote = $method === 'offline'
+            ? "<p style='background:#fff7ed;border-left:4px solid #f97316;padding:.875rem;border-radius:6px;color:#9a3412;margin:1rem 0'><strong>💳 Paiement par virement/remise :</strong> votre commande sera traitée dès réception du règlement.</p>"
+            : "<p style='background:#f0fdf4;border-left:4px solid #22c55e;padding:.875rem;border-radius:6px;color:#166534;margin:1rem 0'>✅ Paiement confirmé.</p>";
+        $invoiceRef = $invNumber ? "<p style='color:#374151'>🧾 <strong>Facture :</strong> " . htmlspecialchars($invNumber) . "</p>" : '';
+        
+        $itemsHtml = '';
+        foreach ($items as $it) {
+            $itemsHtml .= '<tr><td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9">' . htmlspecialchars($it['name']) . '</td>'
+                . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9;text-align:center">×' . (int)$it['qty'] . '</td>'
+                . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">' . Helpers::price($it['price'] * $it['qty']) . '</td></tr>';
+        }
+
+        $emailBody = "
+<h2 style='color:#111827;margin-top:0'>Commande confirmée ✅</h2>
+<p style='color:#374151'>Bonjour <strong>{$user['firstname']}</strong>,</p>
+<p style='color:#374151'>Votre commande <strong>#{$orderId}</strong> a bien été enregistrée.</p>
+{$invoiceNote}
+{$invoiceRef}
+<table style='width:100%;border-collapse:collapse;margin:1rem 0;font-size:.9rem'>
+  <thead><tr style='background:#f8fafc'><th style='padding:.5rem .75rem;text-align:left'>Article</th><th style='padding:.5rem .75rem;text-align:center'>Qté</th><th style='padding:.5rem .75rem;text-align:right'>Prix</th></tr></thead>
+  <tbody>{$itemsHtml}</tbody>
+  <tfoot><tr style='font-weight:700'><td colspan='2' style='padding:.6rem .75rem;border-top:2px solid #e2e8f0'>Total</td><td style='padding:.6rem .75rem;border-top:2px solid #e2e8f0;text-align:right'>" . Helpers::price($total) . "</td></tr></tfoot>
+</table>
+" . ($pdfData ? "<p style='color:#64748b;font-size:.875rem'>📎 Votre facture est jointe à cet email.</p>" : '') . "
+<p style='color:#94a3b8;font-size:.8rem;margin-top:1.5rem'>Merci de votre confiance — {$club}</p>";
+
+        // Envoyer avec pièce jointe si PDF disponible
+        if ($pdfData && class_exists('Mailer')) {
+            Mailer::sendWithAttachment(
+                $user['email'], $user['firstname'],
+                "Commande #{$orderId} confirmée — {$club}",
+                Mailer::template("Confirmation de commande", $emailBody),
+                $pdfData,
+                "facture-{$invNumber}.pdf"
+            );
+        } else {
+            Mailer::send($user['email'], $user['firstname'],
+                "Commande #{$orderId} confirmée — {$club}",
+                Mailer::template("Confirmation de commande", $emailBody)
+            );
+        }
+
+        // Notifier l'admin
+        $adminEmail = Config::get('club_email', '');
+        if ($adminEmail) {
+            Mailer::send($adminEmail, 'Admin',
+                "🛒 Nouvelle commande #{$orderId} — " . Helpers::price($total),
+                "<p>Nouvelle commande de <strong>{$user['firstname']} {$user['lastname']}</strong></p>"
+                . "<p>Montant : <strong>" . Helpers::price($total) . "</strong> | Paiement : {$method}</p>"
+                . ($invNumber ? "<p>Facture : {$invNumber}</p>" : '')
+            );
+        }
+    } catch(Exception $e) {
+        error_log('Email confirmation error: ' . $e->getMessage());
+    }
+
+    // Journal d'activité
+    ActivityLog::log('order_placed', 'order', $orderId, [
+        'total'   => $total,
+        'method'  => $method,
+        'items'   => count($items),
+    ]);
 
     // Vide le panier
     $_SESSION['cart'] = [];
 
-    Helpers::redirect('/boutique/confirmation?order=' . $orderId);
+    Helpers::redirect(u('/boutique/confirmation?order=' . $orderId));
 }
 
 render_checkout:
@@ -375,7 +462,7 @@ $pageTitle = Helpers::e($p['name']) . ' — Boutique — ' . Config::get('club_n
       </div>
       <div class="cart-actions">
         <a href="<?=u('/boutique')?>" class="btn btn-ghost">← Continuer</a>
-        <a href="/boutique/commande" class="btn btn-primary">Commander →</a>
+        <a href="<?=u('/boutique/commande')?>" class="btn btn-primary">Commander →</a>
       </div>
     </div>
   <?php endif; ?>
@@ -384,7 +471,7 @@ $pageTitle = Helpers::e($p['name']) . ' — Boutique — ' . Config::get('club_n
 <?php elseif ($action === 'commande'): ?>
 <!-- ═══════════════════════════════════════ CHECKOUT -->
 <?php Auth::require('member'); $u = Auth::user(); ?>
-<?php if (empty($_SESSION['cart'])): Helpers::redirect('/boutique'); endif; ?>
+<?php if (empty($_SESSION['cart'])): Helpers::redirect(u('/boutique')); endif; ?>
 <div class="container" style="padding:2.5rem 1.5rem;max-width:900px">
   <h1 style="font-family:var(--font-heading);font-size:2rem;letter-spacing:.05em;margin-bottom:2rem">📦 Finaliser la commande</h1>
 
@@ -416,14 +503,52 @@ $pageTitle = Helpers::e($p['name']) . ' — Boutique — ' . Config::get('club_n
             </label>
             <div id="stripe-element" style="display:none;margin-top:1rem"></div>
             <?php endif; ?>
-            <?php if (Config::get('paypal_client')): ?>
+            <?php if (Config::get('stripe_public') && Config::get('shop_wallet_pay')): ?>
+      <!-- Apple Pay / Google Pay via Stripe Payment Request -->
+      <div id="payment-request-btn" style="margin-bottom:.75rem;display:none">
+        <div id="payment-request-element" style="height:44px"></div>
+        <div style="text-align:center;color:#94a3b8;font-size:.78rem;margin:.5rem 0">ou payer avec</div>
+      </div>
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        if(typeof Stripe === 'undefined') return;
+        var stripe = Stripe('<?=Config::get('stripe_public')?>');
+        var pr = stripe.paymentRequest({
+          country: 'FR', currency: 'eur',
+          total: { label: '<?=Helpers::e(Config::get('club_name',''))?>', amount: <?=round($cartTotal*100)?> },
+          requestPayerName: true, requestPayerEmail: true,
+        });
+        var prb = stripe.elements().create('paymentRequestButton', {paymentRequest: pr, style:{paymentRequestButton:{height:'44px'}}});
+        pr.canMakePayment().then(function(result){
+          if(result){
+            document.getElementById('payment-request-btn').style.display='block';
+            prb.mount('#payment-request-element');
+            pr.on('paymentmethod', function(ev){
+              document.querySelector('input[name="payment_method"][value="stripe"]').checked=true;
+              ev.complete('success');
+            });
+          }
+        });
+      });
+      </script>
+      <?php endif; ?>
+<?php if (Config::get('paypal_client')): ?>
             <label class="payment-method">
               <input type="radio" name="payment_method" value="paypal">
               <span class="pm-label">🅿️ PayPal</span>
             </label>
             <?php endif; ?>
             <label class="payment-method">
-              <input type="radio" name="payment_method" value="offline" <?= (!Config::get('stripe_public') && !Config::get('paypal_client')) ? 'checked' : '' ?>>
+              <?php if(Config::get('sumup_api_key')): ?>
+              </label>
+              <label class="pay-method <?= $selectedMethod==='sumup'?'active':'' ?>">
+                <input type="radio" name="payment_method" value="sumup">
+                <span class="pay-logo">💳</span>
+                <span class="pay-label">SumUp — Carte bancaire</span>
+              </label>
+              <label class="pay-method">
+              <?php endif; ?>
+              <input type="radio" name="payment_method" value="offline" <?= (!Config::get('stripe_public') && !Config::get('paypal_client') && !Config::get('sumup_api_key')) ? 'checked' : '' ?>>
               <span class="pm-label">🏦 Paiement à la remise / virement</span>
             </label>
           </div>
@@ -473,29 +598,38 @@ $pageTitle = Helpers::e($p['name']) . ' — Boutique — ' . Config::get('club_n
 function addToCart(id, name, btn) {
   btn.disabled = true;
   btn.textContent = '⏳';
-  fetch('/boutique/panier', {
+  fetch('<?=u('/boutique/panier')?>', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},
-    body: `_action=add&product_id=${id}&qty=1&csrf_token=<?= Auth::csrfToken() ?>`
+    body: `_action=add&product_id=${id}&qty=1&csrf_token=<?= Auth::getCsrfToken() ?>`
   }).then(r => r.json()).then(data => {
     if (data.success) {
       btn.textContent = '✓ Ajouté';
       btn.style.background = 'var(--color-success)';
-      Toast.show('Ajouté au panier !', 'success');
       setTimeout(() => { btn.textContent = 'Ajouter'; btn.style.background = ''; btn.disabled = false; }, 2000);
+      Toast.show('Ajouté au panier !', 'success');
+      if (typeof cpAdd === 'function' && data.cart) {
+        var mapped = data.cart.map(function(it){ return {key:it.key,name:it.name,price:it.price,qty:it.qty,image:it.image||'',variant:it.variant||''}; });
+        cpAdd(mapped);
+      }
     } else Toast.show(data.error || 'Erreur', 'error');
   });
 }
 function addToCartFull(id) {
   const qty     = document.getElementById('qty-input')?.value || 1;
   const variant = [...document.querySelectorAll('.variant-btn.selected')].map(b => b.textContent.trim()).join(', ');
-  fetch('/boutique/panier', {
+  fetch('<?=u('/boutique/panier')?>', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},
-    body: `_action=add&product_id=${id}&qty=${qty}&variant=${encodeURIComponent(variant)}&csrf_token=<?= Auth::csrfToken() ?>`
+    body: `_action=add&product_id=${id}&qty=${qty}&variant=${encodeURIComponent(variant)}&csrf_token=<?= Auth::getCsrfToken() ?>`
   }).then(r => r.json()).then(data => {
-    if (data.success) Toast.show('Ajouté au panier !', 'success');
-    else Toast.show(data.error || 'Erreur', 'error');
+    if (data.success) {
+      Toast.show('Ajouté au panier !', 'success');
+      if (typeof cpAdd === 'function' && data.cart) {
+        var mapped = data.cart.map(function(it){ return {key:it.key,name:it.name,price:it.price,qty:it.qty,image:it.image||'',variant:it.variant||''}; });
+        cpAdd(mapped);
+      }
+    } else Toast.show(data.error || 'Erreur', 'error');
   });
 }
 function changeQty(delta) {
@@ -507,11 +641,11 @@ function selectVariant(btn, group) {
   btn.classList.add('selected');
 }
 function updateCart(key, qty) {
-  fetch('/boutique/panier', {
+  fetch('<?=u('/boutique/panier')?>', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},
-    body: `_action=update&key=${encodeURIComponent(key)}&qty=${qty}&csrf_token=<?= Auth::csrfToken() ?>`
-  }).then(r => r.json()).then(() => location.reload());
+    body: `_action=update&key=${encodeURIComponent(key)}&qty=${qty}&csrf_token=<?= Auth::getCsrfToken() ?>`
+  }).then(r => r.json()).then(function(){ cpQty ? null : location.reload(); });
 }
 </script>
 

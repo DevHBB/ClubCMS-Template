@@ -600,6 +600,51 @@ CREATE TABLE IF NOT EXISTS `cc_tombola_participants` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+CREATE TABLE IF NOT EXISTS `cc_invoices` (
+  `id`             int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_number` varchar(30) NOT NULL UNIQUE COMMENT 'Format: YYYY-NNNN',
+  `order_id`       int(11) NOT NULL,
+  `user_id`        int(11) DEFAULT NULL,
+  `status`         enum('draft','issued','paid','cancelled') DEFAULT 'issued',
+  `subtotal_ht`    decimal(10,2) NOT NULL DEFAULT 0.00,
+  `tva_rate`       decimal(5,2)  NOT NULL DEFAULT 0.00,
+  `tva_amount`     decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total_ttc`      decimal(10,2) NOT NULL DEFAULT 0.00,
+  `billing_info`   json DEFAULT NULL,
+  `items`          json NOT NULL,
+  `notes`          text DEFAULT NULL,
+  `issued_at`      datetime DEFAULT CURRENT_TIMESTAMP,
+  `due_at`         datetime DEFAULT NULL,
+  `paid_at`        datetime DEFAULT NULL,
+  `created_at`     datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Conservation légale 10 ans';
+
+CREATE TABLE IF NOT EXISTS `cc_activity_log` (
+  `id`         int(11) NOT NULL AUTO_INCREMENT,
+  `user_id`    int(11) DEFAULT NULL,
+  `action`     varchar(100) NOT NULL,
+  `entity`     varchar(50)  DEFAULT NULL,
+  `entity_id`  int(11)      DEFAULT NULL,
+  `details`    json         DEFAULT NULL,
+  `ip`         varchar(45)  DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `cc_backups` (
+  `id`         int(11) NOT NULL AUTO_INCREMENT,
+  `filename`   varchar(255) NOT NULL,
+  `size`       int(11) DEFAULT 0,
+  `type`       varchar(20)  DEFAULT 'manual',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Données initiales ─────────────────────────────────────────
 INSERT IGNORE INTO `cc_modules` (`slug`,`label`,`enabled`,`require_login`) VALUES
   ('forum',    'Forum',    1, 1),

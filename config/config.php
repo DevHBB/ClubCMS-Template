@@ -13,3 +13,5 @@ require_once CC_ROOT.'/core/Mailer.php';
 require_once CC_ROOT.'/core/Helpers.php';
 require_once CC_ROOT.'/core/BlockRenderer.php';
 require_once CC_ROOT.'/core/CriteriaRenderer.php';
+require_once CC_ROOT.'/core/ActivityLog.php';
+require_once CC_ROOT.'/core/Invoice.php';

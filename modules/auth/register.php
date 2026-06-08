@@ -7,6 +7,7 @@ if(!class_exists('CriteriaRenderer'))require_once CC_ROOT.'/core/CriteriaRendere
  */
 
 if (Auth::check()) {
+    if(class_exists('ActivityLog')) ActivityLog::log('register', 'user', 0, ['email' => $email]);
     Helpers::redirect(u('/membre'));
 }
 

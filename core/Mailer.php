@@ -201,6 +201,54 @@ class Mailer {
         self::send($email, $name, "Réinitialisation de votre mot de passe — {$club}", self::template("Mot de passe oublié", $content));
     }
 
+    /**
+     * Envoyer un email avec pièce jointe (PDF)
+     */
+    public static function sendWithAttachment(string $to, string $name, string $subject, string $html, string $attachData, string $attachName): void {
+        $fromEmail = Config::get('mail_from_email', 'noreply@clubcms.fr');
+        $fromName  = Config::get('mail_from_name', Config::get('club_name', 'ClubCMS'));
+        $boundary  = 'b' . md5(uniqid());
+        $b64html   = chunk_split(base64_encode($html));
+        $b64pdf    = chunk_split(base64_encode($attachData));
+        $fromEnc   = '=?UTF-8?B?' . base64_encode($fromName) . '?=';
+        $toEnc     = '=?UTF-8?B?' . base64_encode($name) . '?=';
+        $subjEnc   = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+        $date      = date('r');
+
+        $msg = implode("\r\n", [
+            'From: ' . $fromEnc . ' <' . $fromEmail . '>',
+            'To: ' . $toEnc . ' <' . $to . '>',
+            'Subject: ' . $subjEnc,
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/mixed; boundary=' . $boundary,
+            'Date: ' . $date,
+            '',
+            '--' . $boundary,
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: base64',
+            '',
+            $b64html,
+            '--' . $boundary,
+            'Content-Type: application/pdf; name=' . $attachName,
+            'Content-Transfer-Encoding: base64',
+            'Content-Disposition: attachment; filename=' . $attachName,
+            '',
+            $b64pdf,
+            '--' . $boundary . '--',
+        ]);
+
+        if (Config::get('mail_host')) {
+            try { self::sendSmtpRaw($to, $fromEmail, $msg); return; }
+            catch(Exception $e) { error_log('Mailer attachment: ' . $e->getMessage()); }
+        }
+        $headers = implode("\r\n", [
+            'From: ' . $fromEnc . ' <' . $fromEmail . '>',
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/mixed; boundary=' . $boundary,
+        ]);
+        @mail($to, $subjEnc, $msg, $headers);
+    }
+
     public static function sendOrderConfirmation(array $order, string $email, string $name): void {
         $club  = Config::get('club_name', 'Mon Club');
         $total = Helpers::price($order['total']);

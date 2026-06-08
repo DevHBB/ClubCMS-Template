@@ -58,10 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['join_tombola']) && Au
                         if (!empty($gf['required']) && $val === '') { $missingRequired = true; break; }
                         $extraData[$gf['label']] = $val;
                     }
-                    if (!$missingRequired) Database::run(
-                        "INSERT INTO cc_tombola_participants (tombola_id,name,email,tickets) VALUES (?,?,?,1)",
-                        [$tid, $guestName, $guestEmail]
-                    );
+                    if (!$missingRequired) {
+                        $extraJson = !empty($extraData) ? json_encode($extraData, JSON_UNESCAPED_UNICODE) : null;
+                        Database::run(
+                            "INSERT INTO cc_tombola_participants (tombola_id,name,email,tickets,extra_data) VALUES (?,?,?,1,?)",
+                            [$tid, $guestName, $guestEmail, $extraJson]
+                        );
+                    }
                 }
             }
         }
@@ -261,30 +264,24 @@ ob_start();
       <a href="<?=u('/login')?>" class="tb-cta" style="margin-right:.5rem">Se connecter</a>
       <a href="<?=u('/register')?>" class="tb-cta" style="background:rgba(255,255,255,.1);color:#fff">S'inscrire</a>
 
-      <?php elseif($tombola['paid']): ?>
-      <!-- Payant → boutique -->
-      <?php if($linkedProduct): ?>
+      <?php elseif($tombola['paid'] && $linkedProduct): ?>
+      <!-- Payant avec produit boutique -->
       <a href="<?=u('/boutique/produit/'.$linkedProduct['slug'])?>" class="tb-cta">
         🎟️ Acheter un ticket — <?=Helpers::price($tombola['price'] ?: $linkedProduct['price'])?>
       </a>
       <div style="color:rgba(255,255,255,.3);font-size:.72rem;margin-top:.5rem">Inscription automatique après l'achat</div>
-      <?php else: ?>
-      <div style="color:#f59e0b;font-size:.82rem">Contactez un administrateur pour participer.</div>
-      <?php endif; ?>
 
       <?php elseif($isLogged): ?>
-      <!-- Gratuit + connecté → inscription directe -->
+      <!-- Connecté → inscription directe -->
       <form method="post">
         <?=Auth::csrfField()?>
         <input type="hidden" name="tombola_id" value="<?=$tombola['id']?>">
-        <button type="submit" name="join_tombola" class="tb-cta">🎟️ Participer gratuitement</button>
+        <button type="submit" name="join_tombola" class="tb-cta">🎟️ <?=($tombola['paid']&&!$linkedProduct)?'Participer (contacter admin pour paiement)':'Participer gratuitement'?></button>
       </form>
 
       <?php else: ?>
-      <!-- Gratuit + non connecté → bouton qui ouvre le popup -->
-      <?php
-      $guestFields = json_decode($tombola['guest_fields']??'[]', true) ?: [];
-      ?>
+      <!-- Non connecté → popup inscription -->
+      <?php $guestFields = json_decode($tombola['guest_fields']??'[]', true) ?: []; ?>
       <button type="button" class="tb-cta" onclick="openJoinPopup()" style="position:relative;z-index:10">🎟️ Participer gratuitement</button>
       <?php endif; ?>
 
