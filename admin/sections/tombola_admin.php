@@ -270,6 +270,45 @@ ob_start();
             placeholder="Inscrivez-vous avant le tirage !"></div>
       </div>
 
+      <!-- Champs visiteurs non connectés -->
+      <?php
+      $guestFields = json_decode($editTombola['guest_fields']??'[]',true) ?: [];
+      ?>
+      <div id="guest-fields-section" style="<?=($editTombola['participation']??'all')==='members'?'display:none':'';?>border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem;margin-bottom:1rem">
+        <div style="font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:.875rem">📋 Champs du formulaire visiteur</div>
+        <div style="font-size:.8rem;color:#94a3b8;margin-bottom:.875rem">Nom et email sont toujours inclus. Ajoutez ici des champs supplémentaires (ex: téléphone, ville, âge…)</div>
+        <div id="gf-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem">
+          <?php foreach($guestFields as $i=>$gf): ?>
+          <div class="gf-row" style="display:flex;align-items:center;gap:.5rem">
+            <input type="text" name="gf_label[]" value="<?=Helpers::e($gf['label']??'')?>" class="bi" placeholder="Ex: Téléphone" style="flex:1">
+            <label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap;cursor:pointer">
+              <input type="checkbox" name="gf_required[]" value="1" <?=($gf['required']??0)?'checked':''?>>
+              Obligatoire
+            </label>
+            <button type="button" onclick="this.closest('.gf-row').remove()" style="background:#fee2e2;border:none;border-radius:6px;color:#dc2626;cursor:pointer;padding:.3rem .5rem;font-size:.9rem">✕</button>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <button type="button" onclick="addGfRow()" class="btn btn-ghost btn-sm">+ Ajouter un champ</button>
+      </div>
+      <script>
+      function addGfRow(){
+        var row=document.createElement('div');
+        row.className='gf-row';
+        row.style='display:flex;align-items:center;gap:.5rem';
+        row.innerHTML='<input type="text" name="gf_label[]" class="bi" placeholder="Ex: Téléphone" style="flex:1">'
+          +'<label style="display:flex;align-items:center;gap:.3rem;font-size:.8rem;white-space:nowrap;cursor:pointer"><input type="checkbox" name="gf_required[]" value="1"> Obligatoire</label>'
+          +'<button type="button" onclick="this.closest('.gf-row').remove()" style="background:#fee2e2;border:none;border-radius:6px;color:#dc2626;cursor:pointer;padding:.3rem .5rem">✕</button>';
+        document.getElementById('gf-list').appendChild(row);
+      }
+      // Masquer/afficher selon participation
+      document.querySelectorAll('select[name="participation"]').forEach(function(s){
+        s.addEventListener('change',function(){
+          document.getElementById('guest-fields-section').style.display=this.value==='members'?'none':'';
+        });
+      });
+      </script>
+
       <button type="submit" name="save_tombola" class="btn btn-primary">💾 Sauvegarder</button>
     </form>
   </div>

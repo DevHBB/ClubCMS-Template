@@ -48,8 +48,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['join_tombola']) && Au
                 $guestName  = Helpers::sanitize($_POST['guest_name'] ?? '');
                 $guestEmail = Helpers::sanitize($_POST['guest_email'] ?? '');
                 if ($guestName) {
-                    Database::run("INSERT INTO cc_tombola_participants (tombola_id,name,email) VALUES (?,?,?)",
-                        [$tid, $guestName, $guestEmail]);
+                    // Sauvegarder les champs custom
+                    $guestFields = json_decode($t['guest_fields']??'[]',true) ?: [];
+                    $extraData   = [];
+                    $missingRequired = false;
+                    foreach ($guestFields as $gf) {
+                        $key = 'gf_'.preg_replace('/[^a-z0-9]/', '_', strtolower($gf['label']));
+                        $val = Helpers::sanitize($_POST[$key] ?? '');
+                        if (!empty($gf['required']) && $val === '') { $missingRequired = true; break; }
+                        $extraData[$gf['label']] = $val;
+                    }
+                    if (!$missingRequired) Database::run(
+                        "INSERT INTO cc_tombola_participants (tombola_id,name,email,tickets) VALUES (?,?,?,1)",
+                        [$tid, $guestName, $guestEmail]
+                    );
                 }
             }
         }
@@ -151,8 +163,11 @@ ob_start();
 .tb-cd-box{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:.5rem .75rem;text-align:center;min-width:56px}
 .tb-cd-num{font-size:1.5rem;font-weight:800;color:#ffd700;line-height:1}
 .tb-cd-lbl{font-size:.62rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em}
-.confetto{position:fixed;border-radius:2px;animation:confettoFall linear forwards;pointer-events:none;z-index:9999}
-@keyframes confettoFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+.confetto{position:fixed;pointer-events:none;z-index:9999;border-radius:2px;}
+@keyframes confettoFallLeft{0%{transform:translateY(-20px) rotate(0deg) scaleX(1);opacity:1}50%{scaleX:-1}100%{transform:translateY(105vh) translateX(-120px) rotate(-540deg) scaleX(-1);opacity:0}}
+@keyframes confettoFallRight{0%{transform:translateY(-20px) rotate(0deg) scaleX(1);opacity:1}50%{scaleX:-1}100%{transform:translateY(105vh) translateX(120px) rotate(540deg) scaleX(-1);opacity:0}}
+@keyframes confettoFallStraight{0%{transform:translateY(-20px) rotate(0deg);opacity:1}30%{transform:translateY(30vh) translateX(40px) rotate(200deg)}60%{transform:translateY(60vh) translateX(-30px) rotate(420deg)}100%{transform:translateY(105vh) translateX(20px) rotate(660deg);opacity:0}}
+@keyframes confettoFallWiggle{0%{transform:translateY(-20px) rotate(0deg);opacity:1}25%{transform:translateY(25vh) translateX(-60px) rotate(180deg)}50%{transform:translateY(50vh) translateX(50px) rotate(360deg)}75%{transform:translateY(75vh) translateX(-40px) rotate(540deg)}100%{transform:translateY(105vh) translateX(30px) rotate(720deg);opacity:0}}
 </style>
 
 <div class="tb-page">
@@ -266,20 +281,69 @@ ob_start();
       </form>
 
       <?php else: ?>
-      <!-- Gratuit + non connecté → formulaire nom+email -->
-      <form method="post" style="width:100%;text-align:left">
-        <?=Auth::csrfField()?>
-        <input type="hidden" name="tombola_id" value="<?=$tombola['id']?>">
-        <input type="hidden" name="join_tombola" value="1">
-        <div style="margin-bottom:.5rem">
-          <input type="text" name="guest_name" required placeholder="Votre nom" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:.55rem .875rem;color:#fff;font-family:inherit;font-size:.875rem;box-sizing:border-box">
-        </div>
-        <div style="margin-bottom:.75rem">
-          <input type="email" name="guest_email" placeholder="Votre email (optionnel)" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:.55rem .875rem;color:#fff;font-family:inherit;font-size:.875rem;box-sizing:border-box">
-        </div>
-        <button type="submit" class="tb-cta" style="width:100%;justify-content:center">🎟️ Participer gratuitement</button>
-      </form>
+      <!-- Gratuit + non connecté → bouton qui ouvre le popup -->
+      <?php
+      $guestFields = json_decode($tombola['guest_fields']??'[]', true) ?: [];
+      ?>
+      <button type="button" class="tb-cta" onclick="openJoinPopup()" style="position:relative;z-index:10">🎟️ Participer gratuitement</button>
       <?php endif; ?>
+
+      <!-- ── Popup inscription visiteur ── -->
+      <div id="join-popup" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem">
+        <div style="background:#1a0533;border:1.5px solid rgba(255,215,0,.3);border-radius:20px;padding:2rem;width:100%;max-width:420px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+          <button onclick="closeJoinPopup()" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.1);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;color:#fff;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+          <div style="text-align:center;margin-bottom:1.5rem">
+            <div style="font-size:2rem;margin-bottom:.35rem">🎟️</div>
+            <h3 style="color:#ffd700;font-family:Georgia,serif;font-size:1.3rem;margin:0 0 .35rem">Participer à la tombola</h3>
+            <p style="color:rgba(255,255,255,.5);font-size:.82rem;margin:0"><?=Helpers::e($tombola['name'])?></p>
+          </div>
+          <form method="post" id="join-form">
+            <?=Auth::csrfField()?>
+            <input type="hidden" name="tombola_id" value="<?=$tombola['id']?>">
+            <input type="hidden" name="join_tombola" value="1">
+            <!-- Nom -->
+            <div style="margin-bottom:.75rem">
+              <label style="display:block;font-size:.78rem;font-weight:600;color:rgba(255,215,0,.8);margin-bottom:.3rem">Votre nom *</label>
+              <input type="text" name="guest_name" required placeholder="Prénom Nom"
+                style="width:100%;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:.65rem .875rem;color:#fff;font-family:inherit;font-size:.875rem;box-sizing:border-box"
+                onfocus="this.style.borderColor='rgba(255,215,0,.5)'" onblur="this.style.borderColor='rgba(255,255,255,.15)'">
+            </div>
+            <!-- Email -->
+            <div style="margin-bottom:.75rem">
+              <label style="display:block;font-size:.78rem;font-weight:600;color:rgba(255,215,0,.8);margin-bottom:.3rem">Votre email</label>
+              <input type="email" name="guest_email" placeholder="exemple@email.fr"
+                style="width:100%;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:.65rem .875rem;color:#fff;font-family:inherit;font-size:.875rem;box-sizing:border-box"
+                onfocus="this.style.borderColor='rgba(255,215,0,.5)'" onblur="this.style.borderColor='rgba(255,255,255,.15)'">
+            </div>
+            <!-- Champs custom -->
+            <?php foreach($guestFields as $gf):
+              $key = 'gf_'.preg_replace('/[^a-z0-9]/', '_', strtolower($gf['label']));
+            ?>
+            <div style="margin-bottom:.75rem">
+              <label style="display:block;font-size:.78rem;font-weight:600;color:rgba(255,215,0,.8);margin-bottom:.3rem">
+                <?=Helpers::e($gf['label'])?> <?=!empty($gf['required'])?'*':''?>
+              </label>
+              <input type="text" name="<?=Helpers::e($key)?>"
+                <?=!empty($gf['required'])?'required':''?>
+                placeholder="<?=Helpers::e($gf['label'])?>"
+                style="width:100%;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:.65rem .875rem;color:#fff;font-family:inherit;font-size:.875rem;box-sizing:border-box"
+                onfocus="this.style.borderColor='rgba(255,215,0,.5)'" onblur="this.style.borderColor='rgba(255,255,255,.15)'">
+            </div>
+            <?php endforeach; ?>
+            <button type="submit" style="width:100%;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1a0533;border:none;border-radius:99px;padding:.85rem;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;margin-top:.5rem;position:relative;z-index:10">
+              🎟️ Confirmer ma participation
+            </button>
+            <p style="color:rgba(255,255,255,.3);font-size:.72rem;text-align:center;margin-top:.75rem">
+              Ou <a href="<?=u('/login')?>" style="color:rgba(255,215,0,.5)">connectez-vous</a> pour participer avec votre compte
+            </p>
+          </form>
+        </div>
+      </div>
+      <script>
+      function openJoinPopup(){document.getElementById('join-popup').style.display='flex';}
+      function closeJoinPopup(){document.getElementById('join-popup').style.display='none';}
+      document.getElementById('join-popup').addEventListener('click',function(e){if(e.target===this)closeJoinPopup();});
+      </script>
     <?php endif; ?>
   </div>
   <?php endif; // !isAdmin ?>
@@ -327,57 +391,302 @@ function drawWheel(rot) {
   ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.strokeStyle='#ffd700'; ctx.lineWidth=5; ctx.stroke();
 }
 
-function startDraw() {
-  console.log('startDraw called, NAMES:', NAMES.length, 'TOMBOLA_ID:', TOMBOLA_ID);
-  if (spinning) { alert('Tirage en cours...'); return; }
-  if (!NAMES.length) { alert('❌ Aucun participant dans la tombola.'); return; }
-  spinning=true;
-  var btn=document.getElementById('draw-btn'); if(btn) btn.disabled=true;
-  playDrumroll();
-  var ticker=startTicker();
-  var dur=4500+Math.random()*2000, t0=performance.now(), a0=angle, tot=(Math.PI*2)*(8+Math.random()*6);
-  function anim(now) {
-    var p=Math.min((now-t0)/dur,1), ease=1-Math.pow(1-p,3);
-    angle=a0+tot*ease; drawWheel(angle);
-    if(p<1){requestAnimationFrame(anim);}
-    else{clearInterval(ticker);document.getElementById('names-ticker').textContent='';fetchDraw();}
-  }
-  requestAnimationFrame(anim);
+// Calcule l'angle final pour que la flèche pointe sur le nom donné
+function angleForName(winnerName) {
+  var idx = NAMES.indexOf(winnerName);
+  if (idx === -1) idx = 0;
+  var n   = NAMES.length;
+  var arc = (Math.PI * 2) / n;
+  // Le centre du secteur gagnant doit être en haut (angle -Math.PI/2)
+  // La flèche est en haut → on veut que le secteur idx soit pointé vers le haut
+  // Secteur i commence à: angle + i*arc
+  // Centre secteur i: angle + i*arc + arc/2
+  // On veut: angle + idx*arc + arc/2 = -Math.PI/2 (mod 2PI)
+  // → angle = -Math.PI/2 - idx*arc - arc/2
+  var target = -Math.PI/2 - idx * arc - arc/2;
+  // Normaliser entre 0 et 2PI
+  return ((target % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
 }
 
-function fetchDraw() {
-  var fd=new FormData();
-  fd.append('draw','1'); fd.append('tombola_id',TOMBOLA_ID); fd.append('csrf_token','<?=Auth::getCsrfToken()?>');
-  fetch(DRAW_URL,{method:'POST',body:fd})
+function startDraw() {
+  if (spinning) return;
+  if (!NAMES.length) { alert('❌ Aucun participant.'); return; }
+  spinning = true;
+  var btn = document.getElementById('draw-btn');
+  if (btn) btn.disabled = true;
+
+  // 1. Tirer au sort côté serveur EN PREMIER
+  var fd = new FormData();
+  fd.append('draw','1');
+  fd.append('tombola_id', TOMBOLA_ID);
+  fd.append('csrf_token', '<?=Auth::getCsrfToken()?>');
+
+  fetch(DRAW_URL, {method:'POST', body:fd})
     .then(function(r){
-      var clone=r.clone();
       return r.json().catch(function(){
-        return clone.text().then(function(t){
-          console.error('Réponse non-JSON:', t.substring(0,300));
-          throw new Error('Réponse invalide du serveur');
+        return r.clone().text().then(function(t){
+          throw new Error('Réponse invalide: ' + t.substring(0,200));
         });
       });
     })
-    .then(function(d){
-      if(d.error){alert('❌ '+d.error);spinning=false;var b=document.getElementById('draw-btn');if(b)b.disabled=false;return;}
-      showWinner(d.winner);
-    }).catch(function(e){alert('Erreur : '+e);spinning=false;});
+    .then(function(d) {
+      if (d.error) {
+        alert('❌ ' + d.error);
+        spinning = false;
+        if (btn) btn.disabled = false;
+        return;
+      }
+      // 2. Calculer l'angle final pour pointer sur le gagnant
+      var winnerName  = d.winner;
+      var targetAngle = angleForName(winnerName);
+      // Ajouter des tours complets pour l'effet visuel (8-12 tours)
+      var extraTurns  = (8 + Math.floor(Math.random() * 4)) * Math.PI * 2;
+      var finalAngle  = extraTurns + targetAngle;
+
+      // 3. Lancer l'animation
+      playDrumroll();
+      var ticker = startTicker();
+      var dur    = 5000 + Math.random() * 2000;
+      var t0     = performance.now();
+      var a0     = angle % (Math.PI * 2); // angle actuel normalisé
+
+      function anim(now) {
+        var p    = Math.min((now - t0) / dur, 1);
+        var ease = 1 - Math.pow(1 - p, 4); // ease out quart
+        angle    = a0 + finalAngle * ease;
+        drawWheel(angle);
+        if (p < 1) {
+          requestAnimationFrame(anim);
+        } else {
+          // Animation terminée → la roue pointe exactement sur le gagnant
+          clearInterval(ticker);
+          document.getElementById('names-ticker').textContent = '';
+          stopDrumroll();
+          playWinnerSound();
+          setTimeout(function() { showWinner(winnerName); }, 300);
+        }
+      }
+      requestAnimationFrame(anim);
+    })
+    .catch(function(e) {
+      alert('Erreur : ' + e.message);
+      spinning = false;
+      if (btn) btn.disabled = false;
+    });
 }
 
 function showWinner(name) {
-  document.getElementById('winner-name').textContent=name;
-  document.getElementById('winner-card').style.display='block';
-  stopDrumroll(); playWinnerSound(); launchFireworks();
+  document.getElementById('winner-name').textContent = name;
+  document.getElementById('winner-card').style.display = 'block';
+  launchFireworks();
 }
 
-function startTicker(){var i=0,el=document.getElementById('names-ticker');return setInterval(function(){if(el)el.textContent=NAMES[i++%NAMES.length];},80);}
+function startTicker(){
+  var i=0, el=document.getElementById('names-ticker');
+  return setInterval(function(){ if(el) el.textContent=NAMES[i++%NAMES.length]; }, 80);
+}
 
 // Sons
 var audioCtx;
 function playDrumroll(){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)();var t=audioCtx.currentTime;for(var i=0;i<60;i++){var osc=audioCtx.createOscillator(),g=audioCtx.createGain();osc.connect(g);g.connect(audioCtx.destination);osc.frequency.value=150+Math.random()*80;osc.type='sawtooth';var ti=t+i*0.12*(1+i*.008);g.gain.setValueAtTime(.18+i*.003,ti);g.gain.exponentialRampToValueAtTime(.001,ti+.05);osc.start(ti);osc.stop(ti+.06);}}catch(e){}}
 function stopDrumroll(){try{if(audioCtx)audioCtx.suspend();}catch(e){}}
-function playWinnerSound(){try{var c=new(window.AudioContext||window.webkitAudioContext)();[523.25,659.25,783.99,1046.50,1318.51].forEach(function(f,i){var o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=f;o.type='sine';var t=c.currentTime+i*.18;g.gain.setValueAtTime(.3,t);g.gain.exponentialRampToValueAtTime(.001,t+.5);o.start(t);o.stop(t+.5);});}catch(e){}}
-function launchFireworks(){var colors=['#ffd700','#ff4444','#44ff44','#4444ff','#ff44ff','#44ffff','#ff8800'];for(var b=0;b<5;b++){(function(d){setTimeout(function(){var cx=20+Math.random()*60,cy=10+Math.random()*40;for(var i=0;i<28;i++){var el=document.createElement('div');el.className='confetto';el.style.cssText='left:'+cx+'vw;top:'+cy+'vh;width:'+(6+Math.random()*8)+'px;height:'+(6+Math.random()*8)+'px;background:'+colors[Math.floor(Math.random()*colors.length)]+';border-radius:'+(Math.random()>.5?'50%':'2px')+';animation-duration:'+(2+Math.random()*2)+'s;animation-delay:'+(Math.random()*.5)+'s';document.body.appendChild(el);setTimeout(function(e){e.remove();},5000,el);}},d);})(b*400);}}
+function playWinnerSound(){
+  try {
+    var ac = new (window.AudioContext || window.webkitAudioContext)();
+    var master = ac.createGain();
+    var reverb = ac.createConvolver();
+    var reverbGain = ac.createGain();
+    var dryGain = ac.createGain();
+
+    // Créer une réverbération de salle
+    (function buildReverb(){
+      var len = ac.sampleRate * 2.5;
+      var buf = ac.createBuffer(2, len, ac.sampleRate);
+      for(var ch=0;ch<2;ch++){
+        var d=buf.getChannelData(ch);
+        for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5);
+      }
+      reverb.buffer=buf;
+    })();
+
+    master.connect(ac.destination);
+    master.gain.value = 0.85;
+    reverbGain.gain.value = 0.35;
+    dryGain.gain.value = 0.65;
+    reverb.connect(reverbGain);
+    reverbGain.connect(master);
+    dryGain.connect(master);
+
+    var t = ac.currentTime;
+
+    // Fonction pour créer un instrument chaleureux (sine + harmoniques)
+    function warmNote(freq, startT, durT, vol, vibrato) {
+      var fundamental = ac.createOscillator();
+      var h2 = ac.createOscillator();
+      var h3 = ac.createOscillator();
+      var mix = ac.createGain();
+      var env = ac.createGain();
+      var lp  = ac.createBiquadFilter();
+
+      fundamental.type = 'sine';  fundamental.frequency.value = freq;
+      h2.type = 'sine';           h2.frequency.value = freq * 2;
+      h3.type = 'sine';           h3.frequency.value = freq * 3;
+
+      var gF=ac.createGain(), gH2=ac.createGain(), gH3=ac.createGain();
+      gF.gain.value=0.7; gH2.gain.value=0.2; gH3.gain.value=0.08;
+
+      fundamental.connect(gF); gF.connect(mix);
+      h2.connect(gH2);         gH2.connect(mix);
+      h3.connect(gH3);         gH3.connect(mix);
+
+      lp.type='lowpass'; lp.frequency.value=3500; lp.Q.value=0.8;
+      mix.connect(lp); lp.connect(env);
+      env.connect(dryGain); env.connect(reverb);
+
+      // Vibrato léger
+      if(vibrato){
+        var lfo=ac.createOscillator(), lfoG=ac.createGain();
+        lfo.frequency.value=5.5; lfoG.gain.value=freq*0.012;
+        lfo.connect(lfoG); lfoG.connect(fundamental.frequency);
+        lfoG.connect(h2.frequency); lfoG.connect(h3.frequency);
+        lfo.start(startT); lfo.stop(startT+durT+0.3);
+      }
+
+      // Enveloppe ADSR douce
+      env.gain.setValueAtTime(0, startT);
+      env.gain.linearRampToValueAtTime(vol, startT + 0.04);
+      env.gain.setValueAtTime(vol, startT + durT - 0.08);
+      env.gain.exponentialRampToValueAtTime(0.001, startT + durT + 0.18);
+
+      fundamental.start(startT); fundamental.stop(startT+durT+0.25);
+      h2.start(startT);          h2.stop(startT+durT+0.25);
+      h3.start(startT);          h3.stop(startT+durT+0.25);
+    }
+
+    // Fonction caisse claire douce (bruit filtré)
+    function snare(startT, vol) {
+      var buf = ac.createBuffer(1, ac.sampleRate*0.12, ac.sampleRate);
+      var d = buf.getChannelData(0);
+      for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5);
+      var src=ac.createBufferSource(), hp=ac.createBiquadFilter(), g=ac.createGain();
+      hp.type='highpass'; hp.frequency.value=2000;
+      src.buffer=buf;
+      src.connect(hp); hp.connect(g); g.connect(dryGain);
+      g.gain.setValueAtTime(0,startT);
+      g.gain.linearRampToValueAtTime(vol,startT+0.005);
+      g.gain.exponentialRampToValueAtTime(0.001,startT+0.1);
+      src.start(startT); src.stop(startT+0.15);
+    }
+
+    // Fonction grosse caisse
+    function kick(startT, vol) {
+      var osc=ac.createOscillator(), g=ac.createGain();
+      osc.type='sine'; osc.frequency.setValueAtTime(160,startT);
+      osc.frequency.exponentialRampToValueAtTime(40,startT+0.15);
+      g.gain.setValueAtTime(0,startT);
+      g.gain.linearRampToValueAtTime(vol,startT+0.01);
+      g.gain.exponentialRampToValueAtTime(0.001,startT+0.2);
+      osc.connect(g); g.connect(dryGain);
+      osc.start(startT); osc.stop(startT+0.25);
+    }
+
+    // ── INTRO : roulement de tambour ─────────────────────────
+    var speeds=[0,.06,.12,.16,.20,.23,.26,.28,.30,.32];
+    speeds.forEach(function(s,i){
+      snare(t+s, 0.06+i*0.008);
+    });
+    kick(t+0.01, 0.5);
+
+    // ── MÉLODIE "Da da da DUM da da DUM" ─────────────────────
+    // Gamme de Do majeur, mélodie triomphale
+    // Style "podium / remise de prix" : montée progressive
+    var melody = [
+      // montée introductive
+      {f:261.6, s:.38, d:.10, v:.22},  // do
+      {f:293.7, s:.49, d:.10, v:.22},  // ré
+      {f:329.6, s:.60, d:.10, v:.22},  // mi
+      // pause + accent
+      {f:392.0, s:.72, d:.25, v:.28},  // sol ← montée
+      // petite descente
+      {f:349.2, s:.98, d:.10, v:.22},  // fa
+      {f:329.6, s:1.09,d:.10, v:.22},  // mi
+      // final triomphal
+      {f:392.0, s:1.22,d:.18, v:.30},  // sol
+      {f:440.0, s:1.42,d:.18, v:.30},  // la
+      {f:523.3, s:1.62,d:.55, v:.38},  // do aigu (final tenu + vibrato)
+    ];
+
+    melody.forEach(function(n,i){
+      warmNote(n.f, t+n.s, n.d, n.v, i >= melody.length-1);
+    });
+
+    // Accord de soutien (basse + harmonie)
+    warmNote(130.8, t+0.38, 1.8, 0.12, false); // do grave
+    warmNote(196.0, t+0.38, 1.8, 0.09, false); // sol grave
+    warmNote(261.6, t+0.72, 1.5, 0.10, false); // do médium harmonie
+    warmNote(329.6, t+0.72, 1.5, 0.08, false); // mi harmonie
+
+    // Grosse caisse sur les temps forts
+    kick(t+0.38, 0.4);
+    kick(t+0.72, 0.45);
+    kick(t+1.22, 0.4);
+    kick(t+1.62, 0.5);
+
+    // Cloches finales (triangle / glockenspiel)
+    [[1047,.14],[1319,.11],[1568,.09],[2093,.07]].forEach(function(n,i){
+      warmNote(n[0], t+1.62+i*0.08, 1.2, n[1], false);
+    });
+
+  } catch(e) { console.warn('Audio:', e); }
+}
+function launchFireworks(){
+  var colors=['#ffd700','#ff3d00','#00e676','#2979ff','#f50057','#00e5ff','#ff6d00','#d500f9','#76ff03','#ff1744','#ffea00','#69f0ae'];
+  var anims=['confettoFallLeft','confettoFallRight','confettoFallStraight','confettoFallWiggle'];
+  var shapes=['50%','2px','4px','0'];
+  // 8 vagues de confettis
+  for(var b=0;b<8;b++){(function(delay){
+    setTimeout(function(){
+      // Spawn de plusieurs zones en même temps
+      var zones=[[10,0],[30,0],[50,0],[70,0],[90,0],[20,20],[60,20],[80,10]];
+      var zone=zones[Math.floor(Math.random()*zones.length)];
+      var count=30+Math.floor(Math.random()*25);
+      for(var i=0;i<count;i++){
+        var el=document.createElement('div');
+        el.className='confetto';
+        var w=5+Math.random()*10, h=5+Math.random()*12;
+        var anim=anims[Math.floor(Math.random()*anims.length)];
+        var dur=2.5+Math.random()*2.5;
+        var del=Math.random()*0.8;
+        var left=zone[0]+Math.random()*15-5;
+        var top=zone[1];
+        el.style.cssText=[
+          'left:'+left+'vw',
+          'top:'+top+'vh',
+          'width:'+w+'px',
+          'height:'+h+'px',
+          'background:'+colors[Math.floor(Math.random()*colors.length)],
+          'border-radius:'+shapes[Math.floor(Math.random()*shapes.length)],
+          'animation:'+anim+' '+dur+'s '+del+'s ease-in forwards',
+          'opacity:1',
+        ].join(';');
+        document.body.appendChild(el);
+        setTimeout(function(e){if(e.parentNode)e.remove();},( dur+del+0.5)*1000,el);
+      }
+    },delay);
+  })(b*350);}
+  // Confettis latéraux qui rentrent des côtés
+  for(var s=0;s<3;s++){(function(d){
+    setTimeout(function(){
+      for(var i=0;i<20;i++){
+        var el=document.createElement('div');
+        el.className='confetto';
+        el.style.cssText='left:'+(Math.random()>0.5?'-2':'102')+'vw;top:'+(Math.random()*50)+'vh;width:'+(8+Math.random()*6)+'px;height:'+(8+Math.random()*6)+'px;background:'+colors[Math.floor(Math.random()*colors.length)]+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';animation:confettoFallStraight '+(2+Math.random()*2)+'s '+(Math.random()*0.3)+'s ease-in forwards';
+        document.body.appendChild(el);
+        setTimeout(function(e){if(e.parentNode)e.remove();},5000,el);
+      }
+    },d);
+  })(s*500+200);}
+}
 
 // Countdown
 (function(){var el=document.getElementById('tb-countdown');if(!el)return;var end=parseInt(el.dataset.end)*1000;function upd(){var diff=end-Date.now();if(diff<=0){el.innerHTML='<div style="color:#f59e0b;font-size:.85rem">⏰ Inscriptions closes</div>';return;}var d=Math.floor(diff/86400000),h=Math.floor(diff%86400000/3600000),m=Math.floor(diff%3600000/60000),s=Math.floor(diff%60000/1000);document.getElementById('cd-d').textContent=d;document.getElementById('cd-h').textContent=String(h).padStart(2,'0');document.getElementById('cd-m').textContent=String(m).padStart(2,'0');document.getElementById('cd-s').textContent=String(s).padStart(2,'0');setTimeout(upd,1000);}upd();})();
