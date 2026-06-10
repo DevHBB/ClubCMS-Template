@@ -154,9 +154,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'commande') {
         
         $itemsHtml = '';
         foreach ($items as $it) {
-            $itemsHtml .= '<tr><td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9">' . htmlspecialchars($it['name']) . '</td>'
+            $variantLine = !empty($it['variant'])
+                ? '<br><span style="font-size:.78rem;color:#6b7280;font-style:italic">' . htmlspecialchars($it['variant']) . '</span>'
+                : '';
+            $itemsHtml .= '<tr>'
+                . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9">'
+                    . htmlspecialchars($it['name']) . $variantLine
+                . '</td>'
                 . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9;text-align:center">×' . (int)$it['qty'] . '</td>'
-                . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">' . Helpers::price($it['price'] * $it['qty']) . '</td></tr>';
+                . '<td style="padding:.4rem .75rem;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">' . Helpers::price($it['price'] * $it['qty']) . '</td>'
+                . '</tr>';
         }
 
         $emailBody = "
@@ -373,17 +380,46 @@ $pageTitle = Helpers::e($p['name']) . ' — Boutique — ' . Config::get('club_n
       <?php endif; ?>
 
       <?php if ($variants): ?>
-      <div class="product-variants">
-        <?php foreach ($variants as $variantGroup): ?>
-        <div class="variant-group">
-          <label><?= Helpers::e($variantGroup['label'] ?? 'Option') ?></label>
-          <div class="variant-options">
+      <div class="product-variants" id="product-variants">
+        <?php foreach ($variants as $vi => $variantGroup):
+          $vtype    = $variantGroup['type'] ?? 'select';
+          $required = !empty($variantGroup['required']);
+          $label    = $variantGroup['label'] ?? 'Option';
+        ?>
+        <div class="variant-group" data-label="<?=Helpers::e($label)?>" data-type="<?=$vtype?>" data-required="<?=$required?'1':'0'?>">
+          <label style="font-weight:600;font-size:.875rem;display:flex;align-items:center;gap:.35rem;margin-bottom:.4rem">
+            <?= Helpers::e($label) ?>
+            <?php if($required): ?><span style="color:#ef4444;font-size:.75rem">*</span><?php endif; ?>
+            <span class="variant-selected-val" style="color:var(--color-primary);font-weight:400;font-size:.82rem;margin-left:.2rem"></span>
+          </label>
+
+          <?php if($vtype === 'select'): ?>
+          <div class="variant-options" data-mode="single">
             <?php foreach ($variantGroup['options'] as $opt): ?>
-              <button type="button" class="variant-btn" onclick="selectVariant(this, '<?= Helpers::e($variantGroup['label']) ?>')">
-                <?= Helpers::e($opt) ?>
-              </button>
+            <button type="button" class="variant-btn"
+              onclick="variantClick(this,'single')"><?= Helpers::e($opt) ?></button>
             <?php endforeach; ?>
           </div>
+
+          <?php elseif($vtype === 'multi'): ?>
+          <div class="variant-options" data-mode="multi">
+            <?php foreach ($variantGroup['options'] as $opt): ?>
+            <button type="button" class="variant-btn"
+              onclick="variantClick(this,'multi')"><?= Helpers::e($opt) ?></button>
+            <?php endforeach; ?>
+          </div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:.3rem">Plusieurs choix possibles</div>
+
+          <?php elseif($vtype === 'textarea'): ?>
+          <textarea rows="3" placeholder="Votre <?=Helpers::e(strtolower($label))?>…"
+            style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:.6rem .875rem;font-family:inherit;font-size:.875rem;resize:vertical;box-sizing:border-box;margin-top:.2rem"
+            data-variant-free="<?=Helpers::e($label)?>"></textarea>
+
+          <?php else: // text ?>
+          <input type="text" placeholder="Votre <?=Helpers::e(strtolower($label))?>…"
+            style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:.6rem .875rem;font-family:inherit;font-size:.875rem;box-sizing:border-box;margin-top:.2rem"
+            data-variant-free="<?=Helpers::e($label)?>">
+          <?php endif; ?>
         </div>
         <?php endforeach; ?>
       </div>
@@ -616,8 +652,49 @@ function addToCart(id, name, btn) {
   });
 }
 function addToCartFull(id) {
-  const qty     = document.getElementById('qty-input')?.value || 1;
-  const variant = [...document.querySelectorAll('.variant-btn.selected')].map(b => b.textContent.trim()).join(', ');
+  const qty = document.getElementById('qty-input')?.value || 1;
+  // Vérifier que chaque groupe de variantes a une sélection
+  const groups = document.querySelectorAll('.variant-group');
+  let missing = [];
+  groups.forEach(function(g) {
+    if (g.dataset.required !== '1') return;
+    var label  = (g.dataset.label || 'Option').trim();
+    var type   = g.dataset.type || 'select';
+    var selBtn = g.querySelector('.variant-btn.selected');
+    var free   = g.querySelector('[data-variant-free]');
+    if (type === 'text' || type === 'textarea') {
+      if (!free || !free.value.trim()) missing.push(label);
+    } else {
+      if (!selBtn) missing.push(label);
+    }
+  });
+  if (missing.length > 0) {
+    Toast.show('Veuillez choisir : ' + missing.join(', '), 'error');
+    missing.forEach(function(m) {
+      document.querySelectorAll('.variant-group').forEach(function(g) {
+        if (g.querySelector('label') && g.querySelector('label').textContent.trim() === m) {
+          g.querySelector('.variant-options').style.outline = '2px solid #ef4444';
+          g.querySelector('.variant-options').style.borderRadius = '8px';
+          setTimeout(function() { g.querySelector('.variant-options').style.outline = ''; }, 2000);
+        }
+      });
+    });
+    return;
+  }
+  // Collecter toutes les variantes
+  var variantParts = [];
+  document.querySelectorAll('.variant-group').forEach(function(g) {
+    var label = g.dataset.label || '';
+    var type  = g.dataset.type  || 'select';
+    if (type === 'text' || type === 'textarea') {
+      var free = g.querySelector('[data-variant-free]');
+      if (free && free.value.trim()) variantParts.push(label + ': ' + free.value.trim());
+    } else {
+      var selected = [...g.querySelectorAll('.variant-btn.selected')].map(function(b){ return b.textContent.trim(); });
+      if (selected.length) variantParts.push(label + ': ' + selected.join(', '));
+    }
+  });
+  var variant = variantParts.join(' | ');
   fetch('<?=u('/boutique/panier')?>', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest'},
@@ -636,10 +713,27 @@ function changeQty(delta) {
   const input = document.getElementById('qty-input');
   if (input) input.value = Math.max(1, (parseInt(input.value) || 1) + delta);
 }
-function selectVariant(btn, group) {
-  btn.closest('.variant-options').querySelectorAll('.variant-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
+function variantClick(btn, mode) {
+  var opts  = btn.closest('.variant-options');
+  var group = btn.closest('.variant-group');
+  var lbl   = group ? group.querySelector('.variant-selected-val') : null;
+  if (mode === 'multi') {
+    btn.classList.toggle('selected');
+    if (opts) opts.style.outline = '';
+    var sel = opts ? [].slice.call(opts.querySelectorAll('.variant-btn.selected')).map(function(b){ return b.textContent.trim(); }) : [];
+    if (lbl) lbl.textContent = sel.length ? '\u2014 ' + sel.join(', ') : '';
+  } else {
+    if (opts) {
+      [].forEach.call(opts.querySelectorAll('.variant-btn'), function(b){ b.classList.remove('selected'); });
+      opts.style.outline = '';
+    }
+    btn.classList.add('selected');
+    if (lbl) lbl.textContent = '\u2014 ' + btn.textContent.trim();
+  }
 }
+function selectVariant(btn, group) {}
+function selectVariantBtn(btn, group) {}
+function toggleVariantMulti(btn) {}
 function updateCart(key, qty) {
   fetch('<?=u('/boutique/panier')?>', {
     method: 'POST',
@@ -692,8 +786,12 @@ function updateCart(key, qty) {
 .variant-group{margin-bottom:.75rem}
 .variant-group label{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-muted);display:block;margin-bottom:.4rem}
 .variant-options{display:flex;flex-wrap:wrap;gap:.4rem}
-.variant-btn{padding:.35rem .85rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);background:#fff;cursor:pointer;font-size:.85rem;transition:all .2s}
+.variant-btn{padding:.35rem .85rem;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);background:#fff;cursor:pointer;font-size:.85rem;transition:all .2s;line-height:1.4}
 .variant-btn:hover,.variant-btn.selected{border-color:var(--color-primary);color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 8%,transparent)}
+.variant-multi-btn.selected{border-color:var(--color-primary);color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 12%,transparent);font-weight:600}
+.variant-group{margin-bottom:.875rem}
+.variant-group label{display:block;font-size:.85rem;font-weight:600;color:#374151;margin-bottom:.4rem}
+.variant-options{display:flex;flex-wrap:wrap;gap:.4rem}
 .product-qty-row{display:flex;align-items:center;gap:1rem;margin:1.25rem 0}
 .product-qty-row label{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-muted);white-space:nowrap}
 .qty-control{display:flex;align-items:center;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden}

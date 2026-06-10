@@ -2,6 +2,16 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !Auth::verifyCsrf()) { adminFlash('error','CSRF'); Helpers::redirect(u('/admin/shop')); }
 
 // Sauvegarde produit
+// Suppression article
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_product'])) {
+    $pid = (int)($_POST['product_id'] ?? 0);
+    if ($pid) {
+        Database::run("DELETE FROM cc_shop_products WHERE id=?", [$pid]);
+        adminFlash('success', 'Article supprimé.');
+    }
+    Helpers::redirect(u('/admin/shop'));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_product'])) {
     $id = (int)($_POST['product_id'] ?? 0);
     $data = [
@@ -16,15 +26,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_product'])) {
         'shipping_price'  => (float)($_POST['shipping_price'] ?? 0),
         'pickup_info'     => Helpers::sanitize($_POST['pickup_info'] ?? ''),
     ];
-    // Variants
+    // Variants (label + type + options + required)
     $variantGroups = [];
     foreach ($_POST['variant_label'] ?? [] as $i => $label) {
-        if (trim($label)) {
-            $opts = array_filter(array_map('trim', explode(',', $_POST['variant_options'][$i] ?? '')));
-            if ($opts) $variantGroups[] = ['label' => Helpers::sanitize($label), 'options' => array_values($opts)];
+        $label = trim(Helpers::sanitize($label));
+        if (!$label) continue;
+        $type     = in_array($_POST['variant_type'][$i] ?? '', ['select','multi','text','textarea'])
+                    ? $_POST['variant_type'][$i] : 'select';
+        $required = !empty($_POST['variant_required'][$i]) ? true : false;
+        $opts     = [];
+        if (!in_array($type, ['text','textarea'])) {
+            $opts = array_values(array_filter(array_map('trim',
+                explode(',', $_POST['variant_options'][$i] ?? ''))));
         }
+        $variantGroups[] = [
+            'label'    => $label,
+            'type'     => $type,
+            'options'  => $opts,
+            'required' => $required,
+        ];
     }
-    $data['variants'] = $variantGroups ? json_encode($variantGroups) : null;
+    $data['variants'] = !empty($variantGroups) ? json_encode($variantGroups, JSON_UNESCAPED_UNICODE) : null;
 
     // Images upload
     $existing = $id ? (json_decode(Database::scalar("SELECT images FROM cc_shop_products WHERE id=?",[$id]) ?? '[]', true) ?? []) : [];
@@ -295,7 +317,14 @@ ob_start();
           <td><?=$p['stock']===-1?'∞':$p['stock']?></td>
           <td><span class="badge badge-muted"><?=$p['delivery_mode']??'both'?></span></td>
           <td><?=$p['published']?'✅':'⭕'?></td>
-          <td><a href="<?=u('/admin/shop?tab=products&edit='.$p['id'])?>" class="btn btn-ghost btn-sm">✏️</a></td>
+          <td style="display:flex;gap:.35rem;align-items:center">
+            <a href="<?=u('/admin/shop?tab=products&edit='.$p['id'])?>" class="btn btn-ghost btn-sm">✏️</a>
+            <form method="post" style="display:inline" onsubmit="return confirm('Supprimer cet article définitivement ?')">
+              <?=Auth::csrfField()?>
+              <input type="hidden" name="product_id" value="<?=$p['id']?>">
+              <button type="submit" name="delete_product" class="btn btn-danger btn-sm">🗑️</button>
+            </form>
+          </td>
         </tr>
         <?php endforeach; ?>
       </tbody>
@@ -329,22 +358,63 @@ ob_start();
         </div>
 
         <!-- Variants -->
-        <div class="fg"><label>Variantes (taille, couleur...)</label>
-          <div id="variants-list">
+        <div class="fg">
+          <label>Caractéristiques du produit</label>
+          <div style="font-size:.75rem;color:#64748b;margin-bottom:.625rem">
+            Définissez les options que le client devra renseigner lors de l'achat (taille, couleur, texte personnalisé…)
+          </div>
+          <div id="variants-list" style="display:flex;flex-direction:column;gap:.625rem">
             <?php
-            $variants = json_decode($editProd['variants']??'[]',true)??[];
-            foreach($variants as $i => $vg):
+            $variants = json_decode($editProd['variants']??'[]', true) ?? [];
+            foreach ($variants as $i => $vg):
+            $vtype = $vg['type'] ?? 'select';
             ?>
-            <div class="variant-row" style="border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;margin-bottom:.5rem">
-              <input type="text" name="variant_label[]" value="<?=Helpers::e($vg['label'])?>" placeholder="Ex: Taille" style="width:100%;margin-bottom:.35rem">
-              <input type="text" name="variant_options[]" value="<?=Helpers::e(implode(', ',$vg['options']))?>" placeholder="XS, S, M, L, XL (séparés par virgule)" style="width:100%">
-              <button type="button" onclick="this.closest('.variant-row').remove()" style="margin-top:.35rem;background:none;border:none;cursor:pointer;color:#dc2626;font-size:.78rem">✕ Supprimer</button>
+            <div class="variant-row" style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:.875rem">
+              <div style="display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.625rem">
+                <div style="flex:1">
+                  <input type="text" name="variant_label[]"
+                    value="<?=Helpers::e($vg['label']??'')?>"
+                    class="input-std" placeholder="Titre (ex: Taille, Couleur, Prénom à graver…)">
+                </div>
+                <select name="variant_type[]" class="input-std" style="width:auto;flex-shrink:0"
+                  onchange="toggleVariantOptions(this)">
+                  <option value="select"    <?=$vtype==='select'?'selected':''?>>Choix unique</option>
+                  <option value="multi"     <?=$vtype==='multi'?'selected':''?>>Choix multiple</option>
+                  <option value="text"      <?=$vtype==='text'?'selected':''?>>Texte libre</option>
+                  <option value="textarea"  <?=$vtype==='textarea'?'selected':''?>>Texte long</option>
+                </select>
+                <button type="button" onclick="this.closest('.variant-row').remove()"
+                  style="background:#fee2e2;border:1.5px solid #fecaca;border-radius:6px;color:#dc2626;cursor:pointer;padding:.4rem .6rem;flex-shrink:0">✕</button>
+              </div>
+              <div class="variant-options-block" style="<?=in_array($vtype,['text','textarea'])?'display:none':''?>">
+                <input type="text" name="variant_options[]"
+                  value="<?=Helpers::e(implode(', ', $vg['options']??[]))?>"
+                  class="input-std" placeholder="Options séparées par virgule (ex: XS, S, M, L, XL)">
+              </div>
+              <div class="variant-options-block" style="<?=in_array($vtype,['text','textarea'])?'':'display:none'?>">
+                <input type="text" name="variant_options[]" value=""
+                  class="input-std" placeholder="(texte libre — pas d'options)" disabled>
+              </div>
+              <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;margin-top:.4rem;cursor:pointer">
+                <input type="checkbox" name="variant_required[<?=$i?>]" value="1"
+                  <?=!empty($vg['required'])?'checked':''?>>
+                Obligatoire
+              </label>
             </div>
             <?php endforeach; ?>
           </div>
-          <button type="button" onclick="addVariant()" class="btn btn-ghost btn-sm" style="margin-top:.35rem">+ Ajouter une variante</button>
-        </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.625rem">
+            <button type="button" data-vtype="select"   class="btn btn-ghost btn-sm vr-add">+ Choix unique</button>
+            <button type="button" data-vtype="multi"    class="btn btn-ghost btn-sm vr-add">+ Choix multiple</button>
+            <button type="button" data-vtype="text"     class="btn btn-ghost btn-sm vr-add">+ Texte libre</button>
+            <span style="border-left:1px solid #e2e8f0;margin:0 .25rem"></span>
+            <button type="button" data-vtype="select" data-vlabel="Taille"   data-vopts="XS, S, M, L, XL, XXL"              class="btn btn-ghost btn-sm vr-add" style="font-size:.72rem">📏 Tailles</button>
+            <button type="button" data-vtype="select" data-vlabel="Couleur"  data-vopts="Noir, Blanc, Rouge, Bleu, Vert"     class="btn btn-ghost btn-sm vr-add" style="font-size:.72rem">🎨 Couleurs</button>
+            <button type="button" data-vtype="select" data-vlabel="Pointure" data-vopts="38, 39, 40, 41, 42, 43, 44, 45"    class="btn btn-ghost btn-sm vr-add" style="font-size:.72rem">👟 Pointures</button>
+          </div>
 
+
+        </div><!-- /fg variants -->
         <div class="fg"><label>Photos (multiple)</label><input type="file" name="images[]" multiple accept="image/*"></div>
         <?php if($editProd && ($imgs=json_decode($editProd['images']??'[]',true))): ?>
           <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.75rem">
@@ -530,14 +600,124 @@ Cette action est irréversible.')">
 </div>
 <?php endif; ?>
 
+<?php
+?>
+
 <script>
-function addVariant() {
-  const div = document.createElement('div');
-  div.className = 'variant-row';
-  div.style.cssText = 'border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;margin-bottom:.5rem';
-  div.innerHTML = `<input type="text" name="variant_label[]" placeholder="Ex: Taille" style="width:100%;margin-bottom:.35rem"><input type="text" name="variant_options[]" placeholder="XS, S, M, L, XL" style="width:100%"><button type="button" onclick="this.closest('.variant-row').remove()" style="margin-top:.35rem;background:none;border:none;cursor:pointer;color:#dc2626;font-size:.78rem">✕ Supprimer</button>`;
-  document.getElementById('variants-list').appendChild(div);
+function toggleVariantOptions(sel) {
+  var row    = sel.closest(".variant-row");
+  var blocks = row.querySelectorAll(".variant-options-block");
+  var isFree = sel.value === "text" || sel.value === "textarea";
+  blocks[0].style.display = isFree ? "none" : "";
+  blocks[1].style.display = isFree ? "" : "none";
 }
+function buildVariantRow(type, label, opts) {
+  var isText = (type === "text" || type === "textarea");
+  var list   = document.getElementById("variants-list");
+  var idx    = list.querySelectorAll(".variant-row").length;
+  var row    = document.createElement("div");
+  row.className = "variant-row";
+  row.style.cssText = "background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:.875rem;margin-bottom:.5rem";
+
+  // Ligne 1 : input label + select type + bouton suppr
+  var head = document.createElement("div");
+  head.style.cssText = "display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.625rem";
+
+  var inp = document.createElement("input");
+  inp.type = "text";
+  inp.name = "variant_label[]";
+  inp.className = "input-std";
+  inp.placeholder = "Titre (ex: Taille, Couleur, Prénom à graver...)";
+  inp.style.flex = "1";
+  if (label) inp.value = label;
+
+  var typeLabels = {
+    "select":   "Choix unique",
+    "multi":    "Choix multiple",
+    "text":     "Texte libre",
+    "textarea": "Texte long"
+  };
+  var sel = document.createElement("select");
+  sel.name = "variant_type[]";
+  sel.className = "input-std";
+  sel.style.cssText = "width:auto;flex-shrink:0";
+  sel.addEventListener("change", function(){ toggleVariantOptions(this); });
+  Object.keys(typeLabels).forEach(function(v) {
+    var o = document.createElement("option");
+    o.value = v;
+    o.textContent = typeLabels[v];
+    if (v === type) o.selected = true;
+    sel.appendChild(o);
+  });
+
+  var del = document.createElement("button");
+  del.type = "button";
+  del.textContent = "✕";
+  del.style.cssText = "background:#fee2e2;border:1.5px solid #fecaca;border-radius:6px;color:#dc2626;cursor:pointer;padding:.4rem .6rem;flex-shrink:0";
+  del.addEventListener("click", function(){ row.remove(); });
+
+  head.appendChild(inp);
+  head.appendChild(sel);
+  head.appendChild(del);
+
+  // Bloc options (choix unique / multiple)
+  var blockOpts = document.createElement("div");
+  blockOpts.className = "variant-options-block";
+  blockOpts.style.display = isText ? "none" : "";
+  var inpOpts = document.createElement("input");
+  inpOpts.type = "text";
+  inpOpts.name = "variant_options[]";
+  inpOpts.className = "input-std";
+  inpOpts.placeholder = "Options séparées par virgule (ex : XS, S, M, L, XL)";
+  if (opts) inpOpts.value = opts;
+  blockOpts.appendChild(inpOpts);
+
+  // Bloc texte libre (désactivé, juste pour aligner les name[])
+  var blockFree = document.createElement("div");
+  blockFree.className = "variant-options-block";
+  blockFree.style.display = isText ? "" : "none";
+  var inpFree = document.createElement("input");
+  inpFree.type = "text";
+  inpFree.name = "variant_options[]";
+  inpFree.className = "input-std";
+  inpFree.placeholder = "(texte libre — aucune option à définir)";
+  inpFree.disabled = true;
+  blockFree.appendChild(inpFree);
+
+  // Case Obligatoire
+  var lblReq = document.createElement("label");
+  lblReq.style.cssText = "display:flex;align-items:center;gap:.4rem;font-size:.8rem;margin-top:.4rem;cursor:pointer";
+  var chkReq = document.createElement("input");
+  chkReq.type = "checkbox";
+  chkReq.name = "variant_required[" + idx + "]";
+  chkReq.value = "1";
+  var txt = document.createTextNode(" Obligatoire");
+  lblReq.appendChild(chkReq);
+  lblReq.appendChild(txt);
+
+  row.appendChild(head);
+  row.appendChild(blockOpts);
+  row.appendChild(blockFree);
+  row.appendChild(lblReq);
+  list.appendChild(row);
+  inp.focus();
+}
+function addVariantRow(type)           { buildVariantRow(type, "", ""); }
+function addVariantPreset(label, opts) { buildVariantRow("select", label, opts); }
+function addVariant()                  { buildVariantRow("select", "", ""); }
+function addPreset(l, o)               { buildVariantRow("select", l, o); }
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.addEventListener("click", function(e) {
+    var btn = e.target.closest(".vr-add");
+    if (!btn) return;
+    buildVariantRow(
+      btn.dataset.vtype  || "select",
+      btn.dataset.vlabel || "",
+      btn.dataset.vopts  || ""
+    );
+  });
+});
 </script>
 <?php
 $content = ob_get_clean();

@@ -102,9 +102,8 @@ $gf = urlencode($fh).':wght@400;700&family='.urlencode($fb).':wght@400;500;600;7
 .btn-nav-register{display:inline-flex;align-items:center;padding:.4rem .875rem;border-radius:8px;background:var(--color-primary);color:#fff;font-size:.875rem;font-weight:600;text-decoration:none;transition:all .15s;border:1.5px solid var(--color-primary)}
 .btn-nav-register:hover{background:var(--color-primary-dark,#4f46e5)}
 </style>
-<body class="<?= Auth::check() ? 'is-logged-in role-'.Auth::role() : 'is-guest' ?>
+<body class="<?= Auth::check() ? 'is-logged-in role-'.Auth::role() : 'is-guest' ?>">
 <div id="toast-wrap"></div>
-">
 <a href="<?= u('/') ?>#main-content" class="skip-nav">Aller au contenu</a>
 
 <!-- ── NAVBAR ── -->

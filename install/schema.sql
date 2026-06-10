@@ -156,6 +156,8 @@ CREATE TABLE IF NOT EXISTS `cc_shop_products` (
   `published`      tinyint(1) DEFAULT 1,
   `delivery_mode`  varchar(20) DEFAULT 'both',
   `shipping_price` decimal(10,2) DEFAULT 0.00,
+  `tva_rate`       decimal(5,2) DEFAULT NULL,
+  `price_mode`     enum('ttc','ht') DEFAULT 'ttc',
   `pickup_info`    varchar(255) DEFAULT NULL,
   `created_at`     datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)

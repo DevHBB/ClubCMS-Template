@@ -41,6 +41,12 @@ body {
   background:       var(--color-bg);
   line-height:      1.65;
   -webkit-font-smoothing: antialiased;
+  min-height:       100vh;
+  display:          flex;
+  flex-direction:   column;
+}
+body > main#main-content {
+  flex: 1;
 }
 img { max-width: 100%; height: auto; display: block; }
 a { color: var(--color-primary); text-decoration: none; }
